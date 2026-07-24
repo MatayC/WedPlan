@@ -9,7 +9,7 @@ RUN dotnet restore WedPlan/WedPlan.csproj
 
 # Restlichen Quellcode kopieren und in Release veröffentlichen.
 COPY WedPlan/ WedPlan/
-RUN dotnet publish WedPlan/WedPlan.csproj -c Release -o /app/publish /p:UseAppHost=false
+RUN dotnet publish WedPlan/WedPlan.csproj -c Release -o /app/publish /p:UseAppHost=false /p:PublishReadyToRun=true
 
 # Stage 2: Schlankes Runtime-Image (nur ASP.NET Laufzeit).
 FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runtime
@@ -22,6 +22,10 @@ ENV ASPNETCORE_ENVIRONMENT=Production
 # Datei-Überwachung (inotify) deaktivieren – Container haben ein niedriges inotify-Limit,
 # das sonst beim Start zu "inotify instances reached" führt. In Produktion nicht benötigt.
 ENV DOTNET_hostBuilder__reloadConfigOnChange=false
+# Schnellerer Kaltstart: gestuftes JIT mit Quick-JIT für schnelleres Hochfahren.
+ENV DOTNET_TieredCompilation=1
+ENV DOTNET_TieredPGO=1
+ENV DOTNET_ReadyToRun=1
 EXPOSE 8080
 
 ENTRYPOINT ["dotnet", "WedPlan.dll"]

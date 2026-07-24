@@ -144,11 +144,14 @@ else
         _coverUrl = settings.CoverImageUrl;
         Realtime.OnSettingsChanged += OnRealtimeSettingsChanged;
         Realtime.OnDataChanged += OnRealtimeDataChanged;
-        await Realtime.StartAsync();
 
-        // Erst jetzt ist alles bestätigt -> Layout-Inhalt freigeben.
+        // Erst jetzt ist alles bestätigt -> Layout-Inhalt sofort freigeben.
         _ready = true;
         StateHasChanged();
+
+        // Realtime-Verbindung (Websocket) im Hintergrund aufbauen – blockiert
+        // nicht mehr den ersten Seitenaufbau.
+        _ = Realtime.StartAsync();
 
         // Alle Seiten-Daten im Hintergrund vorladen, damit jeder Klick
         // sofort da ist (kein Ladevorgang beim Seitenwechsel).

@@ -30,6 +30,13 @@ builder.Services.AddRazorComponents()
 // MudBlazor UI-Framework registrieren.
 builder.Services.AddMudServices();
 
+// Antwort-Komprimierung (Brotli/Gzip) verkleinert die Initial-Payload deutlich
+// und beschleunigt so den ersten Seitenaufbau.
+builder.Services.AddResponseCompression(options =>
+{
+    options.EnableForHttps = true;
+});
+
 // Browser-LocalStorage für die clientseitige Datenhaltung registrieren.
 builder.Services.AddBlazoredLocalStorage();
 
@@ -70,6 +77,9 @@ var app = builder.Build();
 
 // Weitergeleitete Header (X-Forwarded-Proto/-For) vom Hosting-Proxy auswerten.
 app.UseForwardedHeaders();
+
+// Antwort-Komprimierung möglichst früh in der Pipeline aktivieren.
+app.UseResponseCompression();
 
 // Configure the HTTP request pipeline.
 if (!app.Environment.IsDevelopment())
