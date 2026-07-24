@@ -47,15 +47,91 @@
 
     <link href="_content/MudBlazor/MudBlazor.min.css" rel="stylesheet" />
 
+    <!-- ═══ Splash-Screen Styles (inline, damit sofort sichtbar) ═══ -->
+    <style>
+        #app-splash {
+            position: fixed;
+            inset: 0;
+            z-index: 99999;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(160deg, #2D1B1F 0%, #4a2e34 100%);
+            color: #fff;
+            font-family: 'Poppins', system-ui, sans-serif;
+            transition: opacity .5s ease;
+        }
+        #app-splash.app-splash--hidden { opacity: 0; pointer-events: none; }
+        .app-splash__inner { text-align: center; padding: 24px; }
+        .app-splash__heart {
+            font-size: 46px;
+            color: #D6A6AC;
+            animation: splash-beat 1.2s ease-in-out infinite;
+        }
+        .app-splash__title {
+            font-family: 'Cormorant Garamond', Georgia, serif;
+            font-size: 34px;
+            font-weight: 600;
+            margin-top: 8px;
+            letter-spacing: .5px;
+        }
+        .app-splash__spinner {
+            width: 34px;
+            height: 34px;
+            margin: 22px auto 0;
+            border: 3px solid rgba(214,166,172,.3);
+            border-top-color: #D6A6AC;
+            border-radius: 50%;
+            animation: splash-spin .8s linear infinite;
+        }
+        .app-splash__hint { margin-top: 16px; font-size: 14px; opacity: .8; }
+        @@keyframes splash-spin { to { transform: rotate(360deg); } }
+        @@keyframes splash-beat {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.18); }
+        }
+    </style>
+
     <ImportMap />
     <HeadOutlet />
 </head>
 
 <body>
+    <!-- ═══ Sofort sichtbarer Ladebildschirm (Splash) ═══ -->
+    <!-- Wird angezeigt, bevor Blazor geladen ist, und automatisch entfernt, sobald die App läuft. -->
+    <div id="app-splash">
+        <div class="app-splash__inner">
+            <div class="app-splash__heart">❤</div>
+            <div class="app-splash__title">WedPlan</div>
+            <div class="app-splash__spinner"></div>
+            <div class="app-splash__hint">Eure Hochzeitsplanung wird geladen …</div>
+        </div>
+    </div>
+
     <Routes @rendermode="InteractiveServer" />
     <ReconnectModal />
     <script src="@Assets["_framework/blazor.web.js"]"></script>
     <script src="_content/MudBlazor/MudBlazor.min.js"></script>
+
+    <!-- ═══ Splash entfernen, sobald Blazor gestartet ist ═══ -->
+    <script>
+        (function () {
+            function hideSplash() {
+                var el = document.getElementById('app-splash');
+                if (el) { el.classList.add('app-splash--hidden'); setTimeout(function () { el.remove(); }, 600); }
+            }
+            // Sobald der interaktive Inhalt (App-Layout oder Login) sichtbar wird, Splash ausblenden.
+            var observer = new MutationObserver(function () {
+                if (document.querySelector('.mud-layout') || document.querySelector('.login-wrapper')) {
+                    hideSplash();
+                    observer.disconnect();
+                }
+            });
+            observer.observe(document.body, { childList: true, subtree: true });
+            // Sicherheits-Fallback, damit der Splash nie dauerhaft hängen bleibt.
+            setTimeout(hideSplash, 20000);
+        })();
+    </script>
 
     <!-- ═══ Service Worker Registrierung ═══ -->
     <script>
