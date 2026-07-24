@@ -221,4 +221,50 @@ internal static class SupabaseMappers
         MonthlySavingPartner1 = s.MonthlySavingPartner1,
         MonthlySavingPartner2 = s.MonthlySavingPartner2
     };
+
+    // ----- FinanceEntry -----
+    public static FinanceEntry ToModel(this FinanceEntryRow r) => new()
+    {
+        Id = r.Id,
+        Person = (FinancePerson)r.Person,
+        Title = r.Title,
+        Amount = r.Amount,
+        Type = (FinanceEntryType)r.Type,
+        Category = (FinanceCategory)r.Category,
+        Interval = (FinanceInterval)r.Interval,
+        Notes = r.Notes
+    };
+
+    public static FinanceEntryRow ToRow(this FinanceEntry e, Guid weddingId) => new()
+    {
+        Id = e.Id,
+        WeddingId = weddingId,
+        Person = (int)e.Person,
+        Title = e.Title,
+        Amount = e.Amount,
+        Type = (int)e.Type,
+        Category = (int)e.Category,
+        Interval = (int)e.Interval,
+        Notes = e.Notes
+    };
+
+    // ----- FinanceBalance -----
+    public static FinanceBalance ToModel(this FinanceBalanceRow r) => new()
+    {
+        Id = r.Id,
+        Person = (FinancePerson)r.Person,
+        Month = r.Month,
+        Amount = r.Amount,
+        Notes = r.Notes
+    };
+
+    public static FinanceBalanceRow ToRow(this FinanceBalance b, Guid weddingId) => new()
+    {
+        Id = b.Id,
+        WeddingId = weddingId,
+        Person = (int)b.Person,
+        Month = new DateTime(b.Month.Year, b.Month.Month, 1),
+        Amount = b.Amount,
+        Notes = b.Notes
+    };
 }

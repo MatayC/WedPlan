@@ -25,7 +25,9 @@ public class WeddingRealtimeService : IAsyncDisposable
         "apartment_items",
         "tasks",
         "schedule_items",
-        "seating_tables"
+        "seating_tables",
+        "finance_entries",
+        "finance_balances"
     };
 
     public WeddingRealtimeService(SupabaseClientProvider provider, WeddingContext context)

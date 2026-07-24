@@ -19,7 +19,7 @@
                                   Variant="Variant.Outlined" Lines="2" />
                 </MudItem>
 
-                <MudItem xs="12" sm="6">
+                <MudItem xs="12">
                     <MudSelect @bind-Value="_model.Category" Label="Kategorie" Variant="Variant.Outlined">
                         <MudSelectItem Value="ScheduleCategory.Vorbereitung">Vorbereitung</MudSelectItem>
                         <MudSelectItem Value="ScheduleCategory.Trauung">Trauung</MudSelectItem>
@@ -27,13 +27,6 @@
                         <MudSelectItem Value="ScheduleCategory.Dinner">Dinner / Essen</MudSelectItem>
                         <MudSelectItem Value="ScheduleCategory.Party">Party / Feier</MudSelectItem>
                         <MudSelectItem Value="ScheduleCategory.Sonstiges">Sonstiges</MudSelectItem>
-                    </MudSelect>
-                </MudItem>
-                <MudItem xs="12" sm="6">
-                    @* Meilenstein = Planungsschritt vor der Hochzeit, sonst = Hochzeitstag-Ablauf. *@
-                    <MudSelect @bind-Value="_model.IsMilestone" Label="Ansicht" Variant="Variant.Outlined">
-                        <MudSelectItem Value="false">Ablauf: Großer Tag</MudSelectItem>
-                        <MudSelectItem Value="true">Planungs-Meilenstein</MudSelectItem>
                     </MudSelect>
                 </MudItem>
 
@@ -85,11 +78,11 @@
     public ScheduleItem? Item { get; set; }
 
     /// <summary>
-    /// Vorauswahl des Ansichtsmodus, damit beim Hinzufügen aus dem jeweiligen Tab
-    /// die richtige Ansicht vorbelegt ist.
+    /// Optionales Vorbelegungsdatum, wenn der Termin über einen Klick auf einen
+    /// Kalendertag angelegt wird.
     /// </summary>
     [Parameter]
-    public bool DefaultIsMilestone { get; set; }
+    public DateTime? PresetDate { get; set; }
 
     private MudForm _form = default!;
     private ScheduleItem _model = new();
@@ -117,7 +110,7 @@
                 Category = Item.Category,
                 IsMilestone = Item.IsMilestone
             }
-            : new ScheduleItem { IsMilestone = DefaultIsMilestone };
+            : new ScheduleItem { StartTime = PresetDate ?? DateTime.Today };
 
         // Datum und Zeit aus dem DateTime-Wert aufsplitten.
         _startDate = _model.StartTime;

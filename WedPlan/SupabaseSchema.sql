@@ -281,6 +281,32 @@ alter table wedding_settings add column if not exists savings_partner2 numeric n
 alter table wedding_settings add column if not exists monthly_saving_partner1 numeric not null default 0;
 alter table wedding_settings add column if not exists monthly_saving_partner2 numeric not null default 0;
 
+-- Finanzen – Einträge (Einkommen, Fixkosten, variable Kosten, Sparen) je Person
+create table if not exists finance_entries (
+	id          uuid        primary key default gen_random_uuid(),
+	wedding_id  uuid        not null references weddings (id) on delete cascade,
+	person      int         not null default 0,
+	title       text        not null default '',
+	amount      numeric     not null default 0,
+	type        int         not null default 0,
+	category    int         not null default 0,
+	interval    int         not null default 0,
+	notes       text,
+	created_at  timestamptz not null default now()
+);
+
+-- Finanzen – monatliche Kontostände (Verlauf) je Person
+create table if not exists finance_balances (
+	id          uuid        primary key default gen_random_uuid(),
+	wedding_id  uuid        not null references weddings (id) on delete cascade,
+	person      int         not null default 0,
+	month       date        not null,
+	amount      numeric     not null default 0,
+	notes       text,
+	created_at  timestamptz not null default now(),
+	unique (wedding_id, person, month)
+);
+
 -- RLS auf allen Datentabellen aktivieren
 alter table guests           enable row level security;
 alter table budget_items     enable row level security;
@@ -289,6 +315,8 @@ alter table tasks            enable row level security;
 alter table schedule_items   enable row level security;
 alter table seating_tables   enable row level security;
 alter table wedding_settings enable row level security;
+alter table finance_entries  enable row level security;
+alter table finance_balances enable row level security;
 
 
 -- -----------------------------------------------------------------------------
@@ -427,6 +455,24 @@ drop policy if exists "settings_write_editors" on wedding_settings;
 create policy "settings_write_editors" on wedding_settings
 	for all using (can_edit_page(wedding_id, 'settings'))
 	with check (can_edit_page(wedding_id, 'settings'));
+
+-- finance_entries
+drop policy if exists "finance_entries_select_members" on finance_entries;
+create policy "finance_entries_select_members" on finance_entries
+	for select using (is_wedding_member(wedding_id));
+drop policy if exists "finance_entries_write_editors" on finance_entries;
+create policy "finance_entries_write_editors" on finance_entries
+	for all using (can_edit_page(wedding_id, 'budget'))
+	with check (can_edit_page(wedding_id, 'budget'));
+
+-- finance_balances
+drop policy if exists "finance_balances_select_members" on finance_balances;
+create policy "finance_balances_select_members" on finance_balances
+	for select using (is_wedding_member(wedding_id));
+drop policy if exists "finance_balances_write_editors" on finance_balances;
+create policy "finance_balances_write_editors" on finance_balances
+	for all using (can_edit_page(wedding_id, 'budget'))
+	with check (can_edit_page(wedding_id, 'budget'));
 
 
 -- -----------------------------------------------------------------------------
@@ -723,7 +769,8 @@ declare
 begin
 	foreach t in array array[
 		'wedding_settings', 'guests', 'budget_items', 'apartment_items',
-		'tasks', 'schedule_items', 'seating_tables'
+		'tasks', 'schedule_items', 'seating_tables',
+		'finance_entries', 'finance_balances'
 	]
 	loop
 		begin

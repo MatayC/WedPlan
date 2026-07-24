@@ -142,3 +142,65 @@ public enum ScheduleView
     /// <summary>Planungs-Meilensteine im Vorfeld der Hochzeit.</summary>
     Planungsmeilensteine = 1
 }
+
+/// <summary>
+/// Zuordnung eines Finanz-Eintrags zu einer der beiden Personen bzw. gemeinsam.
+/// </summary>
+public enum FinancePerson
+{
+    /// <summary>Partner 1 (Name aus den Hochzeits-Einstellungen).</summary>
+    Partner1 = 0,
+
+    /// <summary>Partner 2 (Name aus den Hochzeits-Einstellungen).</summary>
+    Partner2 = 1
+}
+
+/// <summary>
+/// Art eines Finanz-Eintrags – bestimmt, wie er in die Berechnung einfließt.
+/// </summary>
+public enum FinanceEntryType
+{
+    /// <summary>Einnahme/Einkommen.</summary>
+    Einkommen = 0,
+
+    /// <summary>Feste, regelmäßige Ausgabe (z.B. Miete).</summary>
+    Fixkosten = 1,
+
+    /// <summary>Variable/schwankende Ausgabe (z.B. Lebensmittel).</summary>
+    VariableKosten = 2,
+
+    /// <summary>Sparen/Rücklage.</summary>
+    Sparen = 3
+}
+
+/// <summary>
+/// Kategorie eines Finanz-Eintrags (erweiterbar).
+/// </summary>
+public enum FinanceCategory
+{
+    Miete = 0,
+    Versicherung = 1,
+    Auto = 2,
+    Lebensmittel = 3,
+    Abos = 4,
+    Freizeit = 5,
+    HochzeitRuecklage = 6,
+    Gehalt = 7,
+    Sonstiges = 8
+}
+
+/// <summary>
+/// Intervall eines Finanz-Eintrags – für die Umrechnung auf einen Monatswert.
+/// </summary>
+public enum FinanceInterval
+{
+    /// <summary>Betrag fällt monatlich an.</summary>
+    Monatlich = 0,
+
+    /// <summary>Betrag fällt jährlich an (wird durch 12 geteilt).</summary>
+    Jaehrlich = 1,
+
+    /// <summary>Einmaliger Betrag (fließt nicht in die Monatsberechnung ein).</summary>
+    Einmalig = 2
+}
+

@@ -182,7 +182,7 @@ else
 
         @* Nächster Termin *@
         <MudItem xs="6" sm="6" md="3">
-            <MudCard Elevation="2" Class="rounded-lg h-100" @onclick="@(() => Navigation.NavigateTo("/zeitplan"))" Style="cursor:pointer">
+            <MudCard Elevation="2" Class="rounded-lg h-100" @onclick="@(() => Navigation.NavigateTo("/kalender"))" Style="cursor:pointer">
                 <MudCardContent>
                     <div class="d-flex align-center mb-2">
                         <MudIcon Icon="@Icons.Material.Filled.Event" Color="Color.Secondary" Class="mr-2" />
@@ -353,8 +353,8 @@ else
                         </MudItem>
                         <MudItem xs="6">
                             <MudButton FullWidth="true" Variant="Variant.Outlined" Color="Color.Primary"
-                                       StartIcon="@Icons.Material.Filled.Timeline" Class="py-3"
-                                       OnClick="@(() => Navigation.NavigateTo("/zeitplan"))">Zeitplan</MudButton>
+                                       StartIcon="@Icons.Material.Filled.CalendarMonth" Class="py-3"
+                                       OnClick="@(() => Navigation.NavigateTo("/kalender"))">Kalender</MudButton>
                         </MudItem>
                         <MudItem xs="6">
                             <MudButton FullWidth="true" Variant="Variant.Outlined" Color="Color.Primary"

@@ -1,0 +1,157 @@
+/* Elegante Schrift für Überschriften/Datumsanzeige */
+.wedding-font {
+    font-family: "Cormorant Garamond", Georgia, serif;
+    font-weight: 600;
+}
+
+/* ── Kalender-Karte ──────────────────────────────────────── */
+.kal-card {
+    background-color: var(--mud-palette-surface);
+}
+
+/* Monats-Navigationsleiste */
+.kal-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 8px;
+}
+
+.kal-toolbar__title {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    line-height: 1.1;
+}
+
+/* ── Kalender-Raster (7 Spalten) ─────────────────────────── */
+.kal-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 4px;
+}
+
+.kal-grid--head {
+    margin-bottom: 4px;
+}
+
+.kal-weekday {
+    text-align: center;
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: var(--mud-palette-text-secondary);
+    padding: 2px 0;
+}
+
+/* Tageszelle */
+.kal-cell {
+    position: relative;
+    min-height: 58px;
+    border-radius: 8px;
+    background-color: rgba(0, 0, 0, 0.02);
+    padding: 4px;
+    cursor: pointer;
+    transition: background-color 0.15s ease, transform 0.1s ease;
+    display: flex;
+    flex-direction: column;
+}
+
+.kal-cell:hover {
+    background-color: rgba(139, 111, 71, 0.1);
+}
+
+.kal-cell:active {
+    transform: scale(0.97);
+}
+
+.kal-cell--muted {
+    opacity: 0.4;
+}
+
+.kal-cell--today {
+    outline: 2px solid var(--mud-palette-primary);
+    outline-offset: -2px;
+}
+
+.kal-cell--wedding {
+    background: linear-gradient(135deg, #F5EFE6 0%, #F3DEDF 60%, #E8B4B8 100%);
+}
+
+.kal-cell__num {
+    font-size: 0.8rem;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 2px;
+}
+
+.kal-cell__heart {
+    color: #E8B4B8;
+    font-size: 0.85rem !important;
+}
+
+/* Termin-Punkte innerhalb der Tageszelle */
+.kal-cell__events {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 3px;
+    margin-top: auto;
+    padding-top: 3px;
+}
+
+.kal-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.kal-more {
+    font-size: 0.6rem;
+    color: var(--mud-palette-text-secondary);
+    line-height: 1;
+}
+
+/* ── Chronologische Übersicht ────────────────────────────── */
+.kal-day-group {
+    margin-bottom: 16px;
+}
+
+.kal-day-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 6px;
+    padding-bottom: 4px;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+.kal-item-card {
+    background-color: var(--mud-palette-surface);
+}
+
+.kal-past-card {
+    opacity: 0.65;
+}
+
+/* ── Mobile-Feinschliff ─────────────────────────────────── */
+@media (max-width: 600px) {
+    .kal-cell {
+        min-height: 48px;
+        padding: 3px;
+    }
+
+    .kal-cell__num {
+        font-size: 0.72rem;
+    }
+
+    .kal-dot {
+        width: 6px;
+        height: 6px;
+    }
+
+    .kal-grid {
+        gap: 3px;
+    }
+}

@@ -1,0 +1,31 @@
+/* Finanzen-Seite – kompaktes, elegantes Layout */
+
+.wedding-font {
+    font-family: "Cormorant Garamond", Georgia, serif;
+    font-weight: 600;
+}
+
+/* Stat-Karten: zentrierter, kompakter Inhalt */
+.fin-stat-card {
+    background-color: var(--mud-palette-surface);
+}
+
+.fin-stat-card ::deep .mud-card-content {
+    padding: 12px;
+}
+
+/* Rechtsbündige Zahlen in der Kontostand-Tabelle */
+::deep .text-right {
+    text-align: right !important;
+}
+
+/* Mobile-Feinschliff */
+@media (max-width: 600px) {
+    .fin-stat-card ::deep .mud-card-content {
+        padding: 8px;
+    }
+
+    .fin-stat-card ::deep .mud-typography-h6 {
+        font-size: 1rem;
+    }
+}

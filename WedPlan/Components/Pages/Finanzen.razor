@@ -1,0 +1,522 @@
+@page "/finanzen"
+@using System.Globalization
+@using WedPlan.Models
+@using WedPlan.Services
+@using WedPlan.Components.Dialogs
+@inject IFinanceService FinanceService
+@inject ISettingsService SettingsService
+@inject IDialogService DialogService
+@inject PermissionService Permissions
+@inject ISnackbar Snackbar
+
+<PageTitle>Finanzen – WedPlan</PageTitle>
+
+<div class="page-header page-header--center">
+    <MudText Typo="Typo.h3" Class="page-header__title">Finanzen</MudText>
+    @if (_canEdit)
+    {
+        <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                   StartIcon="@Icons.Material.Filled.Add"
+                   Class="page-header__action"
+                   OnClick="@(() => OpenEntryDialogAsync(null))">Eintrag hinzufügen</MudButton>
+    }
+</div>
+
+@if (_loading)
+{
+    <MudProgressLinear Color="Color.Primary" Indeterminate="true" Class="my-8" />
+}
+else
+{
+    @* ── Ansichts-Umschalter ── *@
+    <div class="d-flex justify-center mb-4">
+        <MudToggleGroup T="int" @bind-Value="_view" Color="Color.Primary"
+                        Outlined="true" Delimiters="true" Size="Size.Medium">
+            <MudToggleItem Value="0">@_partner1</MudToggleItem>
+            <MudToggleItem Value="1">@_partner2</MudToggleItem>
+            <MudToggleItem Value="2">Gemeinsam</MudToggleItem>
+        </MudToggleGroup>
+    </div>
+
+    @if (_view == 2)
+    {
+        @* ══════════════════ Gemeinsame Ansicht ══════════════════ *@
+        var income = IncomeFor(FinancePerson.Partner1) + IncomeFor(FinancePerson.Partner2);
+        var expenses = ExpensesFor(FinancePerson.Partner1) + ExpensesFor(FinancePerson.Partner2);
+        var savings = SavingsFor(FinancePerson.Partner1) + SavingsFor(FinancePerson.Partner2);
+        var available = income - expenses - savings;
+
+        <MudGrid Spacing="3" Class="mb-2">
+            <MudItem xs="6" md="3">@StatCard("Haushaltseinkommen", income, Color.Success, Icons.Material.Filled.TrendingUp)</MudItem>
+            <MudItem xs="6" md="3">@StatCard("Ausgaben gesamt", expenses, Color.Error, Icons.Material.Filled.TrendingDown)</MudItem>
+            <MudItem xs="6" md="3">@StatCard("Sparen gesamt", savings, Color.Info, Icons.Material.Filled.Savings)</MudItem>
+            <MudItem xs="6" md="3">@StatCard("Gemeinsam übrig", available, available < 0 ? Color.Error : Color.Primary, Icons.Material.Filled.AccountBalanceWallet)</MudItem>
+        </MudGrid>
+
+        @* Vergleich beider Partner nebeneinander *@
+        <MudGrid Spacing="3">
+            <MudItem xs="12" md="6">@PersonChartCard(FinancePerson.Partner1, _partner1)</MudItem>
+            <MudItem xs="12" md="6">@PersonChartCard(FinancePerson.Partner2, _partner2)</MudItem>
+        </MudGrid>
+
+        @* Wie viel bleibt monatlich gemeinsam für die Hochzeit *@
+        <MudCard Elevation="2" Class="rounded-lg mt-3">
+            <MudCardContent>
+                <div class="d-flex align-center mb-1">
+                    <MudIcon Icon="@Icons.Material.Filled.Favorite" Color="Color.Secondary" Class="mr-2" />
+                    <MudText Typo="Typo.h6">Monatlich fürs Hochzeitsbudget verfügbar</MudText>
+                </div>
+                <MudText Typo="Typo.h4" Class="wedding-font" Color="@(available < 0 ? Color.Error : Color.Success)">
+                    @Money(available < 0 ? 0 : available)
+                </MudText>
+                <MudText Typo="Typo.body2" Class="mud-text-secondary">
+                    Das ist der Betrag, den ihr beide zusammen nach allen Ausgaben und Rücklagen übrig habt.
+                </MudText>
+            </MudCardContent>
+        </MudCard>
+    }
+    else
+    {
+        @* ══════════════════ Persönliche Ansicht ══════════════════ *@
+        var person = _view == 0 ? FinancePerson.Partner1 : FinancePerson.Partner2;
+        var personName = _view == 0 ? _partner1 : _partner2;
+        var income = IncomeFor(person);
+        var fixCosts = SumFor(person, FinanceEntryType.Fixkosten);
+        var varCosts = SumFor(person, FinanceEntryType.VariableKosten);
+        var savings = SavingsFor(person);
+        var expenses = fixCosts + varCosts;
+        var available = income - expenses - savings;
+        var plannedPct = income > 0 ? (double)((expenses + savings) / income * 100m) : 0;
+
+        <MudGrid Spacing="3" Class="mb-2">
+            <MudItem xs="6" md="3">@StatCard("Einkommen", income, Color.Success, Icons.Material.Filled.TrendingUp)</MudItem>
+            <MudItem xs="6" md="3">@StatCard("Fixkosten", fixCosts, Color.Error, Icons.Material.Filled.Home)</MudItem>
+            <MudItem xs="6" md="3">@StatCard("Variable Kosten", varCosts, Color.Warning, Icons.Material.Filled.ShoppingCart)</MudItem>
+            <MudItem xs="6" md="3">@StatCard("Übrig", available, available < 0 ? Color.Error : Color.Primary, Icons.Material.Filled.AccountBalanceWallet)</MudItem>
+        </MudGrid>
+
+        @* Fortschrittsbalken: verplanter Anteil des Einkommens *@
+        <MudCard Elevation="2" Class="rounded-lg mb-3">
+            <MudCardContent>
+                <div class="d-flex justify-space-between align-center mb-1">
+                    <MudText Typo="Typo.subtitle2">Verplantes Einkommen</MudText>
+                    <MudText Typo="Typo.subtitle2">@plannedPct.ToString("0")%</MudText>
+                </div>
+                <MudProgressLinear Color="@(plannedPct > 100 ? Color.Error : plannedPct > 85 ? Color.Warning : Color.Success)"
+                                   Value="@Math.Min(plannedPct, 100)" Size="Size.Large" Rounded="true" Class="my-1" />
+                <MudText Typo="Typo.caption" Class="mud-text-secondary">
+                    @Money(expenses + savings) von @Money(income) verplant · Sparen: @Money(savings)
+                </MudText>
+            </MudCardContent>
+        </MudCard>
+
+        @* Kuchendiagramm der Einkommensaufteilung *@
+        <MudGrid Spacing="3">
+            <MudItem xs="12" md="6">@PersonChartCard(person, personName)</MudItem>
+            <MudItem xs="12" md="6">
+                <MudCard Elevation="2" Class="rounded-lg h-100">
+                    <MudCardContent>
+                        <MudText Typo="Typo.h6" Class="mb-2">Einträge von @personName</MudText>
+                        @{
+                            var entries = _entries.Where(e => e.Person == person)
+                                                  .OrderByDescending(e => e.MonthlyAmount).ToList();
+                        }
+                        @if (entries.Count == 0)
+                        {
+                            <MudText Typo="Typo.body2" Class="mud-text-secondary">
+                                Noch keine Einträge. Füge Einkommen und Ausgaben hinzu.
+                            </MudText>
+                        }
+                        else
+                        {
+                            <MudList T="FinanceEntry" Dense="true">
+                                @foreach (var e in entries)
+                                {
+                                    var meta = TypeMeta(e.Type);
+                                    <MudListItem T="FinanceEntry">
+                                        <div class="d-flex align-center justify-space-between">
+                                            <div class="d-flex align-center gap-2">
+                                                <MudIcon Icon="@meta.Icon" Color="@meta.Color" Size="Size.Small" />
+                                                <div>
+                                                    <MudText Typo="Typo.body2"><b>@e.Title</b></MudText>
+                                                    <MudText Typo="Typo.caption" Class="mud-text-secondary">
+                                                        @e.Category · @IntervalLabel(e.Interval)
+                                                    </MudText>
+                                                </div>
+                                            </div>
+                                            <div class="d-flex align-center gap-1">
+                                                <MudText Typo="Typo.body2" Color="@meta.Color">
+                                                    @Money(e.Amount)
+                                                </MudText>
+                                                @if (_canEdit)
+                                                {
+                                                    <MudIconButton Icon="@Icons.Material.Filled.Edit" Size="Size.Small"
+                                                                   OnClick="@(() => OpenEntryDialogAsync(e))" />
+                                                    <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small"
+                                                                   Color="Color.Error"
+                                                                   OnClick="@(() => DeleteEntryAsync(e))" />
+                                                }
+                                            </div>
+                                        </div>
+                                    </MudListItem>
+                                }
+                            </MudList>
+                        }
+                    </MudCardContent>
+                </MudCard>
+            </MudItem>
+        </MudGrid>
+    }
+
+    @* ══════════════════ Kontostand-Entwicklung ══════════════════ *@
+    <div class="d-flex align-center justify-space-between mb-2 mt-5">
+        <div class="d-flex align-center">
+            <MudIcon Icon="@Icons.Material.Filled.ShowChart" Class="mr-2" Color="Color.Primary" />
+            <MudText Typo="Typo.h5">Kontostand-Entwicklung</MudText>
+        </div>
+        @if (_canEdit)
+        {
+            <MudButton Variant="Variant.Outlined" Color="Color.Primary" Size="Size.Small"
+                       StartIcon="@Icons.Material.Filled.Add"
+                       OnClick="OpenBalanceDialogAsync">Kontostand eintragen</MudButton>
+        }
+    </div>
+
+    @if (_balances.Count == 0)
+    {
+        <MudCard Elevation="2" Class="rounded-lg">
+            <MudCardContent class="d-flex flex-column align-center py-6">
+                <MudIcon Icon="@Icons.Material.Filled.Savings" Color="Color.Secondary" Size="Size.Large" />
+                <MudText Typo="Typo.body2" Class="mud-text-secondary mt-2">
+                    Noch keine Kontostände erfasst. Tragt am 15. jeden Monats euren Kontostand ein.
+                </MudText>
+            </MudCardContent>
+        </MudCard>
+    }
+    else
+    {
+        <MudCard Elevation="2" Class="rounded-lg">
+            <MudCardContent>
+                @if (_balanceChartSeries.Count > 0)
+                {
+                    <MudChart T="double" ChartType="ChartType.Line" ChartSeries="_balanceChartSeries"
+                              XAxisLabels="_balanceChartLabels" Width="100%" Height="260px"
+                              ChartOptions="_lineChartOptions" />
+                }
+                <MudSimpleTable Dense="true" Hover="true" Class="mt-2" Elevation="0">
+                    <thead>
+                        <tr>
+                            <th>Monat</th>
+                            <th class="text-right">@_partner1</th>
+                            <th class="text-right">@_partner2</th>
+                            <th class="text-right">Gesamt</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var month in _balanceMonths)
+                        {
+                            var p1 = _balances.FirstOrDefault(b => b.Month == month && b.Person == FinancePerson.Partner1);
+                            var p2 = _balances.FirstOrDefault(b => b.Month == month && b.Person == FinancePerson.Partner2);
+                            var total = (p1?.Amount ?? 0) + (p2?.Amount ?? 0);
+                            <tr>
+                                <td>@month.ToString("MMM yyyy", _culture)</td>
+                                <td class="text-right">@(p1 is null ? "–" : Money(p1.Amount))</td>
+                                <td class="text-right">@(p2 is null ? "–" : Money(p2.Amount))</td>
+                                <td class="text-right"><b>@Money(total)</b></td>
+                                <td class="text-right">
+                                    @if (_canEdit)
+                                    {
+                                        @if (p1 is not null)
+                                        {
+                                            <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small"
+                                                           Color="Color.Error"
+                                                           OnClick="@(() => DeleteBalanceAsync(p1))" />
+                                        }
+                                        @if (p2 is not null)
+                                        {
+                                            <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small"
+                                                           Color="Color.Error"
+                                                           OnClick="@(() => DeleteBalanceAsync(p2))" />
+                                        }
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </MudSimpleTable>
+            </MudCardContent>
+        </MudCard>
+    }
+}
+
+@code {
+    private readonly CultureInfo _culture = new("de-DE");
+    private bool _loading = true;
+    private bool _canEdit;
+
+    // 0 = Partner 1, 1 = Partner 2, 2 = Gemeinsam
+    private int _view;
+
+    private string _partner1 = "Partner 1";
+    private string _partner2 = "Partner 2";
+    private string _currency = "€";
+
+    private List<FinanceEntry> _entries = new();
+    private List<FinanceBalance> _balances = new();
+
+    private List<DateTime> _balanceMonths = new();
+    private List<ChartSeries<double>> _balanceChartSeries = new();
+    private string[] _balanceChartLabels = Array.Empty<string>();
+
+    private readonly ChartOptions _pieChartOptions = new()
+    {
+        ChartPalette = new[] { "#C15B5B", "#D9A441", "#4A8C6F", "#8AA0B5" }
+    };
+
+    private readonly ChartOptions _lineChartOptions = new()
+    {
+        ChartPalette = new[] { "#C9A227", "#E8B4B8" }
+    };
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (FinanceService.HasCache && Permissions.IsLoaded)
+        {
+            await LoadDataAsync();
+            _loading = false;
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender && _loading)
+        {
+            await LoadDataAsync();
+            _loading = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task LoadDataAsync()
+    {
+        var permTask = Permissions.EnsureLoadedAsync();
+        var settingsTask = SettingsService.GetAsync();
+        var entriesTask = FinanceService.GetEntriesAsync();
+        var balancesTask = FinanceService.GetBalancesAsync();
+        await Task.WhenAll(permTask, settingsTask, entriesTask, balancesTask);
+
+        _canEdit = Permissions.CanEdit(WeddingPages.Budget);
+        var settings = await settingsTask;
+        _partner1 = string.IsNullOrWhiteSpace(settings.Partner1Name) ? "Partner 1" : settings.Partner1Name;
+        _partner2 = string.IsNullOrWhiteSpace(settings.Partner2Name) ? "Partner 2" : settings.Partner2Name;
+        _currency = string.IsNullOrWhiteSpace(settings.Currency) ? "€" : settings.Currency;
+
+        _entries = await entriesTask;
+        _balances = await balancesTask;
+        BuildBalanceChart();
+    }
+
+    private async Task ReloadAsync()
+    {
+        _entries = await FinanceService.GetEntriesAsync(forceRefresh: true);
+        _balances = await FinanceService.GetBalancesAsync(forceRefresh: true);
+        BuildBalanceChart();
+    }
+
+    private void BuildBalanceChart()
+    {
+        _balanceMonths = _balances
+            .Select(b => b.Month)
+            .Distinct()
+            .OrderBy(m => m)
+            .ToList();
+
+        _balanceChartLabels = _balanceMonths.Select(m => m.ToString("MMM yy", _culture)).ToArray();
+
+        if (_balanceMonths.Count == 0)
+        {
+            _balanceChartSeries = new();
+            return;
+        }
+
+        var p1Data = _balanceMonths
+            .Select(m => (double)(_balances.FirstOrDefault(b => b.Month == m && b.Person == FinancePerson.Partner1)?.Amount ?? 0))
+            .ToArray();
+        var p2Data = _balanceMonths
+            .Select(m => (double)(_balances.FirstOrDefault(b => b.Month == m && b.Person == FinancePerson.Partner2)?.Amount ?? 0))
+            .ToArray();
+
+        _balanceChartSeries = new List<ChartSeries<double>>
+        {
+            new() { Name = _partner1, Data = p1Data },
+            new() { Name = _partner2, Data = p2Data }
+        };
+    }
+
+    // ── Berechnungen ─────────────────────────────────────────────
+    private decimal IncomeFor(FinancePerson p) => SumFor(p, FinanceEntryType.Einkommen);
+    private decimal SavingsFor(FinancePerson p) => SumFor(p, FinanceEntryType.Sparen);
+    private decimal ExpensesFor(FinancePerson p) =>
+        SumFor(p, FinanceEntryType.Fixkosten) + SumFor(p, FinanceEntryType.VariableKosten);
+
+    private decimal SumFor(FinancePerson p, FinanceEntryType type) =>
+        _entries.Where(e => e.Person == p && e.Type == type).Sum(e => e.MonthlyAmount);
+
+    private string Money(decimal value) =>
+        value.ToString("N0", _culture) + " " + _currency;
+
+    // ── Dialoge / Aktionen ───────────────────────────────────────
+    private async Task OpenEntryDialogAsync(FinanceEntry? item)
+    {
+        var defaultPerson = item?.Person ?? (_view == 1 ? FinancePerson.Partner2 : FinancePerson.Partner1);
+        var parameters = new DialogParameters<FinanceEntryDialog>
+        {
+            { x => x.Item, item },
+            { x => x.DefaultPerson, defaultPerson },
+            { x => x.Partner1Name, _partner1 },
+            { x => x.Partner2Name, _partner2 },
+            { x => x.Currency, _currency }
+        };
+        var options = new DialogOptions { MaxWidth = MaxWidth.Medium, FullWidth = true, CloseButton = true };
+        var dialog = await DialogService.ShowAsync<FinanceEntryDialog>(
+            item is null ? "Eintrag hinzufügen" : "Eintrag bearbeiten", parameters, options);
+        var result = await dialog.Result;
+
+        if (result is not null && !result.Canceled && result.Data is FinanceEntry edited)
+        {
+            if (item is null)
+            {
+                await FinanceService.AddEntryAsync(edited);
+                Snackbar.Add($"'{edited.Title}' wurde hinzugefügt.", Severity.Success);
+            }
+            else
+            {
+                await FinanceService.UpdateEntryAsync(edited);
+                Snackbar.Add($"'{edited.Title}' wurde aktualisiert.", Severity.Success);
+            }
+            await ReloadAsync();
+        }
+    }
+
+    private async Task DeleteEntryAsync(FinanceEntry item)
+    {
+        var opts = new MessageBoxOptions
+        {
+            Title = "Eintrag löschen",
+            Message = $"'{item.Title}' wirklich löschen?",
+            YesText = "Löschen",
+            CancelText = "Abbrechen"
+        };
+        if (await DialogService.ShowMessageBoxAsync(opts) == true)
+        {
+            await FinanceService.DeleteEntryAsync(item.Id);
+            Snackbar.Add($"'{item.Title}' wurde gelöscht.", Severity.Info);
+            await ReloadAsync();
+        }
+    }
+
+    private async Task OpenBalanceDialogAsync()
+    {
+        var defaultPerson = _view == 1 ? FinancePerson.Partner2 : FinancePerson.Partner1;
+        var parameters = new DialogParameters<BalanceDialog>
+        {
+            { x => x.DefaultPerson, defaultPerson },
+            { x => x.Partner1Name, _partner1 },
+            { x => x.Partner2Name, _partner2 },
+            { x => x.Currency, _currency }
+        };
+        var options = new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true, CloseButton = true };
+        var dialog = await DialogService.ShowAsync<BalanceDialog>("Kontostand eintragen", parameters, options);
+        var result = await dialog.Result;
+
+        if (result is not null && !result.Canceled && result.Data is FinanceBalance balance)
+        {
+            await FinanceService.SaveBalanceAsync(balance);
+            Snackbar.Add("Kontostand gespeichert.", Severity.Success);
+            await ReloadAsync();
+        }
+    }
+
+    private async Task DeleteBalanceAsync(FinanceBalance balance)
+    {
+        await FinanceService.DeleteBalanceAsync(balance.Id);
+        Snackbar.Add("Kontostand gelöscht.", Severity.Info);
+        await ReloadAsync();
+    }
+
+    // ── Darstellungshelfer ───────────────────────────────────────
+    private record TypeStyle(Color Color, string Icon);
+
+    private static TypeStyle TypeMeta(FinanceEntryType type) => type switch
+    {
+        FinanceEntryType.Einkommen      => new(Color.Success, Icons.Material.Filled.TrendingUp),
+        FinanceEntryType.Fixkosten      => new(Color.Error,   Icons.Material.Filled.Home),
+        FinanceEntryType.VariableKosten => new(Color.Warning, Icons.Material.Filled.ShoppingCart),
+        _                               => new(Color.Info,    Icons.Material.Filled.Savings)
+    };
+
+    private static string IntervalLabel(FinanceInterval i) => i switch
+    {
+        FinanceInterval.Monatlich => "monatlich",
+        FinanceInterval.Jaehrlich => "jährlich",
+        _ => "einmalig"
+    };
+
+    // Stat-Karte als RenderFragment-Helfer
+    private RenderFragment StatCard(string label, decimal value, Color color, string icon) => __builder =>
+    {
+        <MudCard Elevation="2" Class="rounded-lg h-100 fin-stat-card">
+            <MudCardContent Class="pa-3">
+                <div class="d-flex align-center gap-2 mb-1">
+                    <MudIcon Icon="@icon" Color="@color" Size="Size.Small" />
+                    <MudText Typo="Typo.caption" Class="mud-text-secondary">@label</MudText>
+                </div>
+                <MudText Typo="Typo.h6" Color="@color">@Money(value)</MudText>
+            </MudCardContent>
+        </MudCard>
+    };
+
+    // Kuchendiagramm-Karte für eine Person (Fixkosten / Variabel / Sparen / Übrig)
+    private RenderFragment PersonChartCard(FinancePerson person, string name) => __builder =>
+    {
+        var income = IncomeFor(person);
+        var fix = SumFor(person, FinanceEntryType.Fixkosten);
+        var var2 = SumFor(person, FinanceEntryType.VariableKosten);
+        var save = SavingsFor(person);
+        var rest = income - fix - var2 - save;
+        var restPos = rest < 0 ? 0 : rest;
+
+        var data = new double[] { (double)fix, (double)var2, (double)save, (double)restPos };
+        var hasData = data.Any(d => d > 0);
+
+        <MudCard Elevation="2" Class="rounded-lg h-100">
+            <MudCardContent>
+                <MudText Typo="Typo.h6" Class="mb-2">@name</MudText>
+                @if (hasData)
+                {
+                    <MudChart T="double" ChartType="ChartType.Donut" Width="100%" Height="220px"
+                              InputData="@data"
+                              InputLabels="@(new[] { "Fixkosten", "Variabel", "Sparen", "Übrig" })"
+                              ChartOptions="_pieChartOptions" />
+                }
+                else
+                {
+                    <MudText Typo="Typo.body2" Class="mud-text-secondary">
+                        Noch keine Daten für ein Diagramm. Trage Einkommen und Ausgaben ein.
+                    </MudText>
+                }
+                <div class="d-flex justify-space-between mt-2">
+                    <MudText Typo="Typo.caption" Class="mud-text-secondary">Einkommen</MudText>
+                    <MudText Typo="Typo.caption"><b>@Money(income)</b></MudText>
+                </div>
+                <div class="d-flex justify-space-between">
+                    <MudText Typo="Typo.caption" Class="mud-text-secondary">Übrig</MudText>
+                    <MudText Typo="Typo.caption" Color="@(rest < 0 ? Color.Error : Color.Success)">
+                        <b>@Money(rest)</b>
+                    </MudText>
+                </div>
+            </MudCardContent>
+        </MudCard>
+    };
+}

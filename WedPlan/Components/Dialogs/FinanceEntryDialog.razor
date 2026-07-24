@@ -1,0 +1,135 @@
+@using WedPlan.Models
+
+<MudDialog>
+    <TitleContent>
+        <MudText Typo="Typo.h6">
+            <MudIcon Icon="@Icons.Material.Filled.AccountBalanceWallet" Class="mr-2" />
+            @(_isEdit ? "Eintrag bearbeiten" : "Eintrag hinzufügen")
+        </MudText>
+    </TitleContent>
+    <DialogContent>
+        <MudForm @ref="_form">
+            <MudGrid Spacing="2">
+                <MudItem xs="12">
+                    <MudTextField @bind-Value="_model.Title" Label="Bezeichnung" Variant="Variant.Outlined"
+                                  Required="true" RequiredError="Bezeichnung ist erforderlich." />
+                </MudItem>
+
+                <MudItem xs="12" sm="6">
+                    <MudNumericField @bind-Value="_model.Amount" Label="Betrag" Variant="Variant.Outlined"
+                                     Min="0" Format="N2" Adornment="Adornment.End" AdornmentText="@_currency" />
+                </MudItem>
+                <MudItem xs="12" sm="6">
+                    <MudSelect @bind-Value="_model.Person" Label="Person" Variant="Variant.Outlined">
+                        <MudSelectItem Value="FinancePerson.Partner1">@_partner1</MudSelectItem>
+                        <MudSelectItem Value="FinancePerson.Partner2">@_partner2</MudSelectItem>
+                    </MudSelect>
+                </MudItem>
+
+                <MudItem xs="12" sm="6">
+                    <MudSelect @bind-Value="_model.Type" Label="Art" Variant="Variant.Outlined">
+                        <MudSelectItem Value="FinanceEntryType.Einkommen">Einkommen</MudSelectItem>
+                        <MudSelectItem Value="FinanceEntryType.Fixkosten">Fixkosten</MudSelectItem>
+                        <MudSelectItem Value="FinanceEntryType.VariableKosten">Variable Kosten</MudSelectItem>
+                        <MudSelectItem Value="FinanceEntryType.Sparen">Sparen / Rücklage</MudSelectItem>
+                    </MudSelect>
+                </MudItem>
+                <MudItem xs="12" sm="6">
+                    <MudSelect @bind-Value="_model.Interval" Label="Intervall" Variant="Variant.Outlined">
+                        <MudSelectItem Value="FinanceInterval.Monatlich">Monatlich</MudSelectItem>
+                        <MudSelectItem Value="FinanceInterval.Jaehrlich">Jährlich</MudSelectItem>
+                        <MudSelectItem Value="FinanceInterval.Einmalig">Einmalig</MudSelectItem>
+                    </MudSelect>
+                </MudItem>
+
+                <MudItem xs="12">
+                    <MudSelect @bind-Value="_model.Category" Label="Kategorie" Variant="Variant.Outlined">
+                        <MudSelectItem Value="FinanceCategory.Gehalt">Gehalt / Einkommen</MudSelectItem>
+                        <MudSelectItem Value="FinanceCategory.Miete">Miete / Wohnen</MudSelectItem>
+                        <MudSelectItem Value="FinanceCategory.Versicherung">Versicherung</MudSelectItem>
+                        <MudSelectItem Value="FinanceCategory.Auto">Auto / Mobilität</MudSelectItem>
+                        <MudSelectItem Value="FinanceCategory.Lebensmittel">Lebensmittel</MudSelectItem>
+                        <MudSelectItem Value="FinanceCategory.Abos">Abos</MudSelectItem>
+                        <MudSelectItem Value="FinanceCategory.Freizeit">Freizeit</MudSelectItem>
+                        <MudSelectItem Value="FinanceCategory.HochzeitRuecklage">Hochzeit-Rücklage</MudSelectItem>
+                        <MudSelectItem Value="FinanceCategory.Sonstiges">Sonstiges</MudSelectItem>
+                    </MudSelect>
+                </MudItem>
+
+                <MudItem xs="12">
+                    <MudTextField @bind-Value="_model.Notes" Label="Notiz (optional)"
+                                  Variant="Variant.Outlined" Lines="2" />
+                </MudItem>
+            </MudGrid>
+        </MudForm>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel">Abbrechen</MudButton>
+        <MudButton Color="Color.Primary" Variant="Variant.Filled" OnClick="SubmitAsync">
+            @(_isEdit ? "Speichern" : "Hinzufügen")
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter]
+    private IMudDialogInstance MudDialog { get; set; } = default!;
+
+    /// <summary>Der zu bearbeitende Eintrag. Null = neuer Eintrag.</summary>
+    [Parameter]
+    public FinanceEntry? Item { get; set; }
+
+    /// <summary>Vorbelegte Person, wenn aus einer Partner-Ansicht hinzugefügt wird.</summary>
+    [Parameter]
+    public FinancePerson DefaultPerson { get; set; } = FinancePerson.Partner1;
+
+    /// <summary>Name von Partner 1 (aus den Einstellungen).</summary>
+    [Parameter]
+    public string Partner1Name { get; set; } = "Partner 1";
+
+    /// <summary>Name von Partner 2 (aus den Einstellungen).</summary>
+    [Parameter]
+    public string Partner2Name { get; set; } = "Partner 2";
+
+    /// <summary>Währungssymbol/-code für die Betragsanzeige.</summary>
+    [Parameter]
+    public string Currency { get; set; } = "€";
+
+    private MudForm _form = default!;
+    private FinanceEntry _model = new();
+    private bool _isEdit;
+    private string _partner1 = "Partner 1";
+    private string _partner2 = "Partner 2";
+    private string _currency = "€";
+
+    protected override void OnInitialized()
+    {
+        _isEdit = Item is not null;
+        _partner1 = string.IsNullOrWhiteSpace(Partner1Name) ? "Partner 1" : Partner1Name;
+        _partner2 = string.IsNullOrWhiteSpace(Partner2Name) ? "Partner 2" : Partner2Name;
+        _currency = string.IsNullOrWhiteSpace(Currency) ? "€" : Currency;
+
+        _model = _isEdit
+            ? new FinanceEntry
+            {
+                Id = Item!.Id,
+                Person = Item.Person,
+                Title = Item.Title,
+                Amount = Item.Amount,
+                Type = Item.Type,
+                Category = Item.Category,
+                Interval = Item.Interval,
+                Notes = Item.Notes
+            }
+            : new FinanceEntry { Person = DefaultPerson };
+    }
+
+    private async Task SubmitAsync()
+    {
+        await _form.Validate();
+        if (!_form.IsValid) return;
+        MudDialog.Close(DialogResult.Ok(_model));
+    }
+
+    private void Cancel() => MudDialog.Cancel();
+}

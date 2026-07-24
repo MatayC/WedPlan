@@ -15,6 +15,7 @@
 @inject IScheduleService ScheduleService
 @inject ISeatingService SeatingService
 @inject IApartmentService ApartmentService
+@inject IFinanceService FinanceService
 
 @* Zentrale MudBlazor-Provider: Theme, Popover, Dialog (Bestätigungen) und Snackbar (Feedback). *@
 <MudThemeProvider Theme="WeddingTheme.Theme" @bind-IsDarkMode="_isDarkMode" />
@@ -232,6 +233,8 @@ else
             case "tasks":          TaskService.InvalidateCache();      await TaskService.GetAllAsync(forceRefresh: true);      break;
             case "schedule_items": ScheduleService.InvalidateCache();  await ScheduleService.GetAllAsync(forceRefresh: true);  break;
             case "seating_tables": SeatingService.InvalidateCache();   await SeatingService.GetAllAsync(forceRefresh: true);   break;
+            case "finance_entries":
+            case "finance_balances": FinanceService.InvalidateCache(); break;
             default: return;
         }
 

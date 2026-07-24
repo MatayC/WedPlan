@@ -1,0 +1,530 @@
+@page "/kalender"
+@using System.Globalization
+@using WedPlan.Models
+@using WedPlan.Services
+@using WedPlan.Components.Dialogs
+@inject IScheduleService ScheduleService
+@inject ISettingsService SettingsService
+@inject IFinanceService FinanceService
+@inject IDialogService DialogService
+@inject PermissionService Permissions
+@inject ISnackbar Snackbar
+@inject NavigationManager Navigation
+
+<PageTitle>Kalender – WedPlan</PageTitle>
+
+<div class="page-header page-header--center">
+    <MudText Typo="Typo.h3" Class="page-header__title">Kalender</MudText>
+    @if (_canEdit)
+    {
+        <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                   StartIcon="@Icons.Material.Filled.Add"
+                   Class="page-header__action"
+                   OnClick="@(() => OpenDialogAsync(null))">Termin hinzufügen</MudButton>
+    }
+</div>
+
+@if (_loading)
+{
+    <MudProgressLinear Color="Color.Primary" Indeterminate="true" Class="my-8" />
+}
+else
+{
+    @* ══════════════════════════════════════════════════════════════════════
+       Monats-Kalenderübersicht
+       ══════════════════════════════════════════════════════════════════════ *@
+    <MudCard Elevation="2" Class="rounded-lg mb-4 kal-card">
+        <MudCardContent Class="pa-3">
+            @* Monats-Navigation *@
+            <div class="kal-toolbar">
+                <MudIconButton Icon="@Icons.Material.Filled.ChevronLeft"
+                               OnClick="PrevMonth" aria-label="Vorheriger Monat" />
+                <div class="kal-toolbar__title">
+                    <MudText Typo="Typo.h5" Class="wedding-font">
+                        @_current.ToString("MMMM yyyy", _culture)
+                    </MudText>
+                    <MudButton Size="Size.Small" Variant="Variant.Text" Color="Color.Primary"
+                               OnClick="GoToday">Heute</MudButton>
+                </div>
+                <MudIconButton Icon="@Icons.Material.Filled.ChevronRight"
+                               OnClick="NextMonth" aria-label="Nächster Monat" />
+            </div>
+
+            @* Wochentags-Kopf *@
+            <div class="kal-grid kal-grid--head">
+                @foreach (var wd in _weekdayLabels)
+                {
+                    <div class="kal-weekday">@wd</div>
+                }
+            </div>
+
+            @* Tageszellen *@
+            <div class="kal-grid">
+                @foreach (var day in _calendarDays)
+                {
+                    var inMonth = day.Month == _current.Month;
+                    var isToday = day.Date == DateTime.Today;
+                    var isWedding = _weddingDate.HasValue && day.Date == _weddingDate.Value.Date;
+                    var dayItems = _itemsByDay.TryGetValue(day.Date, out var list) ? list : _empty;
+
+                    <div class="@($"kal-cell {(inMonth ? "" : "kal-cell--muted")} {(isToday ? "kal-cell--today" : "")} {(isWedding ? "kal-cell--wedding" : "")}")"
+                         @onclick="@(() => OnDayClick(day))">
+                        <div class="kal-cell__num">
+                            @day.Day
+                            @if (isWedding)
+                            {
+                                <MudIcon Icon="@Icons.Material.Filled.Favorite" Size="Size.Small" Class="kal-cell__heart" />
+                            }
+                        </div>
+                        @if (dayItems.Count > 0)
+                        {
+                            <div class="kal-cell__events">
+                                @foreach (var ev in dayItems.Take(3))
+                                {
+                                    var cat = CategoryMeta(ev.Category);
+                                    <div class="kal-dot" style="@($"background:{ColorHex(cat.Color)};")" title="@ev.Title"></div>
+                                }
+                                @if (dayItems.Count > 3)
+                                {
+                                    <span class="kal-more">+@(dayItems.Count - 3)</span>
+                                }
+                            </div>
+                        }
+                    </div>
+                }
+            </div>
+        </MudCardContent>
+    </MudCard>
+
+    @* ══════════════════════════════════════════════════════════════════════
+       Kontostand am 15. – Erinnerung + kleine Entwicklungsübersicht
+       ══════════════════════════════════════════════════════════════════════ *@
+    @if (_show15Reminder && _canEdit)
+    {
+        <MudAlert Severity="Severity.Info" Class="mb-4 rounded-lg"
+                  ContentAlignment="HorizontalAlignment.Left">
+            <div class="d-flex align-center justify-space-between flex-wrap gap-2">
+                <span>Heute ist der 15. – tragt euren aktuellen Kontostand ein, um die Entwicklung zu verfolgen.</span>
+                <MudButton Size="Size.Small" Variant="Variant.Filled" Color="Color.Primary"
+                           StartIcon="@Icons.Material.Filled.Savings"
+                           OnClick="OpenBalanceDialogAsync">Kontostand eintragen</MudButton>
+            </div>
+        </MudAlert>
+    }
+
+    <MudCard Elevation="2" Class="rounded-lg mb-4 kal-card">
+        <MudCardContent Class="pa-3">
+            <div class="d-flex align-center justify-space-between mb-2">
+                <div class="d-flex align-center">
+                    <MudIcon Icon="@Icons.Material.Filled.ShowChart" Class="mr-2" Color="Color.Primary" />
+                    <MudText Typo="Typo.h6">Kontostand-Entwicklung</MudText>
+                </div>
+                <div class="d-flex align-center gap-1">
+                    @if (_canEdit)
+                    {
+                        <MudButton Size="Size.Small" Variant="Variant.Outlined" Color="Color.Primary"
+                                   StartIcon="@Icons.Material.Filled.Add"
+                                   OnClick="OpenBalanceDialogAsync">Eintragen</MudButton>
+                    }
+                    <MudIconButton Icon="@Icons.Material.Filled.OpenInNew" Size="Size.Small"
+                                   aria-label="Zu Finanzen"
+                                   OnClick="@(() => Navigation.NavigateTo("/finanzen"))" />
+                </div>
+            </div>
+
+            @if (_balanceChartSeries.Count == 0)
+            {
+                <MudText Typo="Typo.body2" Class="mud-text-secondary">
+                    Noch keine Kontostände erfasst. Tragt am 15. jeden Monats euren Kontostand ein –
+                    ihr seht die Entwicklung dann hier und im Bereich „Finanzen".
+                </MudText>
+            }
+            else
+            {
+                <MudChart T="double" ChartType="ChartType.Line" ChartSeries="_balanceChartSeries"
+                          XAxisLabels="_balanceChartLabels" Width="100%" Height="220px"
+                          ChartOptions="_lineChartOptions" />
+                <div class="d-flex justify-space-between mt-1">
+                    <MudText Typo="Typo.caption" Class="mud-text-secondary">Aktueller Gesamtstand</MudText>
+                    <MudText Typo="Typo.subtitle2"><b>@Money(_latestTotal)</b></MudText>
+                </div>
+            }
+        </MudCardContent>
+    </MudCard>
+
+    @* ══════════════════════════════════════════════════════════════════════
+       Chronologische Terminübersicht
+       ══════════════════════════════════════════════════════════════════════ *@
+    <div class="d-flex align-center mb-2 mt-4">
+        <MudIcon Icon="@Icons.Material.Filled.FormatListBulleted" Class="mr-2" Color="Color.Primary" />
+        <MudText Typo="Typo.h5">Alle Termine</MudText>
+    </div>
+
+    @if (_allItems.Count == 0)
+    {
+        <MudCard Elevation="2" Class="rounded-lg">
+            <MudCardContent Class="d-flex flex-column align-center py-8">
+                <MudIcon Icon="@Icons.Material.Filled.EventNote" Color="Color.Secondary" Size="Size.Large" />
+                <MudText Typo="Typo.h6" Class="mt-3">Noch keine Termine eingetragen.</MudText>
+                <MudText Typo="Typo.body2" Class="mud-text-secondary mt-1">
+                    Trage euren ersten Termin ein – er erscheint dann im Kalender und in dieser Übersicht.
+                </MudText>
+                @if (_canEdit)
+                {
+                    <MudButton Class="mt-4" Variant="Variant.Outlined" Color="Color.Primary"
+                               StartIcon="@Icons.Material.Filled.Add"
+                               OnClick="@(() => OpenDialogAsync(null))">
+                        Ersten Termin hinzufügen
+                    </MudButton>
+                }
+            </MudCardContent>
+        </MudCard>
+    }
+    else
+    {
+        @foreach (var group in _groupedItems)
+        {
+            var isPastDay = group.Key < DateTime.Today;
+            var isTodayDay = group.Key == DateTime.Today;
+
+            <div class="kal-day-group">
+                <div class="kal-day-header">
+                    <MudText Typo="Typo.subtitle2" Class="wedding-font">
+                        @group.Key.ToString("dddd, dd. MMMM yyyy", _culture)
+                    </MudText>
+                    @if (isTodayDay)
+                    {
+                        <MudChip T="string" Size="Size.Small" Color="Color.Primary" Variant="Variant.Filled">Heute</MudChip>
+                    }
+                    else if (!isPastDay)
+                    {
+                        var daysLeft = (group.Key - DateTime.Today).Days;
+                        <MudChip T="string" Size="Size.Small" Color="Color.Info" Variant="Variant.Outlined">
+                            in @daysLeft Tag@(daysLeft == 1 ? "" : "en")
+                        </MudChip>
+                    }
+                </div>
+
+                @foreach (var item in group)
+                {
+                    var cat = CategoryMeta(item.Category);
+                    var isPast = (item.EndTime ?? item.StartTime) < DateTime.Now;
+
+                    <MudCard Elevation="2" Class="@($"rounded-lg mb-2 kal-item-card {(isPast ? "kal-past-card" : "")}")"
+                             Style="@($"border-left:4px solid {ColorHex(cat.Color)};")">
+                        <MudCardContent Class="py-3">
+                            <div class="d-flex justify-space-between align-start">
+                                <div class="flex-grow-1">
+                                    <div class="d-flex align-center gap-2 flex-wrap">
+                                        <MudIcon Icon="@cat.Icon" Color="@cat.Color" Size="Size.Small" />
+                                        <MudText Typo="Typo.subtitle1"><b>@item.Title</b></MudText>
+                                        <MudChip T="string" Size="Size.Small" Color="@cat.Color"
+                                                 Variant="Variant.Outlined">@item.Category</MudChip>
+                                    </div>
+                                    <div class="d-flex align-center gap-1 mt-1">
+                                        <MudIcon Icon="@Icons.Material.Filled.Schedule" Size="Size.Small" Class="mud-text-secondary" />
+                                        <MudText Typo="Typo.caption" Class="mud-text-secondary">
+                                            @item.StartTime.ToString("HH:mm")
+                                            @if (item.EndTime.HasValue)
+                                            {
+                                                <span> – @item.EndTime.Value.ToString("HH:mm")</span>
+                                            }
+                                            <span> Uhr</span>
+                                        </MudText>
+                                    </div>
+                                    @if (!string.IsNullOrWhiteSpace(item.Description))
+                                    {
+                                        <MudText Typo="Typo.body2" Class="mud-text-secondary mt-1">
+                                            <MudIcon Icon="@Icons.Material.Filled.Notes" Size="Size.Small" Class="mr-1" />@item.Description
+                                        </MudText>
+                                    }
+                                    <div class="d-flex flex-wrap gap-3 mt-1">
+                                        @if (!string.IsNullOrWhiteSpace(item.Location))
+                                        {
+                                            <MudText Typo="Typo.caption" Class="mud-text-secondary">
+                                                <MudIcon Icon="@Icons.Material.Filled.Place" Size="Size.Small" Class="mr-1" />@item.Location
+                                            </MudText>
+                                        }
+                                        @if (!string.IsNullOrWhiteSpace(item.ResponsiblePerson))
+                                        {
+                                            <MudText Typo="Typo.caption" Class="mud-text-secondary">
+                                                <MudIcon Icon="@Icons.Material.Filled.Person" Size="Size.Small" Class="mr-1" />@item.ResponsiblePerson
+                                            </MudText>
+                                        }
+                                    </div>
+                                </div>
+                                @if (_canEdit)
+                                {
+                                    <div class="d-flex flex-shrink-0">
+                                        <MudIconButton Icon="@Icons.Material.Filled.Edit" Size="Size.Small"
+                                                       Color="Color.Primary" aria-label="Bearbeiten"
+                                                       OnClick="@(() => OpenDialogAsync(item))" />
+                                        <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small"
+                                                       Color="Color.Error" aria-label="Löschen"
+                                                       OnClick="@(() => DeleteAsync(item))" />
+                                    </div>
+                                }
+                            </div>
+                        </MudCardContent>
+                    </MudCard>
+                }
+            </div>
+        }
+    }
+}
+
+@code {
+    private readonly CultureInfo _culture = new("de-DE");
+    private static readonly List<ScheduleItem> _empty = new();
+    private bool _loading = true;
+    private bool _canEdit;
+
+    private DateTime? _weddingDate;
+
+    // Aktuell angezeigter Monat (immer der Monatserste).
+    private DateTime _current = new(DateTime.Today.Year, DateTime.Today.Month, 1);
+
+    private List<ScheduleItem> _allItems = new();
+    private List<DateTime> _calendarDays = new();
+    private Dictionary<DateTime, List<ScheduleItem>> _itemsByDay = new();
+    private List<IGrouping<DateTime, ScheduleItem>> _groupedItems = new();
+    private readonly string[] _weekdayLabels = { "Mo", "Di", "Mi", "Do", "Fr", "Sa", "So" };
+
+    // ── Kontostand-Entwicklung ──
+    private string _partner1 = "Partner 1";
+    private string _partner2 = "Partner 2";
+    private string _currency = "€";
+    private List<FinanceBalance> _balances = new();
+    private List<ChartSeries<double>> _balanceChartSeries = new();
+    private string[] _balanceChartLabels = Array.Empty<string>();
+    private decimal _latestTotal;
+    private bool _show15Reminder;
+
+    private readonly ChartOptions _lineChartOptions = new()
+    {
+        ChartPalette = new[] { "#C9A227", "#E8B4B8" }
+    };
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (ScheduleService.HasCache && Permissions.IsLoaded)
+        {
+            await LoadDataAsync();
+            _loading = false;
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender && _loading)
+        {
+            await LoadDataAsync();
+            _loading = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task LoadDataAsync()
+    {
+        var permTask = Permissions.EnsureLoadedAsync();
+        var settingsTask = SettingsService.GetAsync();
+        var itemsTask = ScheduleService.GetAllAsync();
+        var balancesTask = FinanceService.GetBalancesAsync();
+        await Task.WhenAll(permTask, settingsTask, itemsTask, balancesTask);
+
+        _canEdit = Permissions.CanEdit(WeddingPages.Schedule);
+        var settings = await settingsTask;
+        _weddingDate = settings.WeddingDate;
+        _partner1 = string.IsNullOrWhiteSpace(settings.Partner1Name) ? "Partner 1" : settings.Partner1Name;
+        _partner2 = string.IsNullOrWhiteSpace(settings.Partner2Name) ? "Partner 2" : settings.Partner2Name;
+        _currency = string.IsNullOrWhiteSpace(settings.Currency) ? "€" : settings.Currency;
+
+        _allItems = (await itemsTask).OrderBy(s => s.StartTime).ToList();
+        _balances = await balancesTask;
+        BuildBalanceChart();
+        _show15Reminder = DateTime.Today.Day == 15;
+        RebuildViews();
+    }
+
+    private async Task ReloadAsync()
+    {
+        _allItems = (await ScheduleService.GetAllAsync(forceRefresh: true)).OrderBy(s => s.StartTime).ToList();
+        RebuildViews();
+    }
+
+    private void BuildBalanceChart()
+    {
+        var months = _balances.Select(b => b.Month).Distinct().OrderBy(m => m).ToList();
+        _balanceChartLabels = months.Select(m => m.ToString("MMM yy", _culture)).ToArray();
+
+        if (months.Count == 0)
+        {
+            _balanceChartSeries = new();
+            _latestTotal = 0;
+            return;
+        }
+
+        var p1 = months.Select(m => (double)(_balances.FirstOrDefault(b => b.Month == m && b.Person == FinancePerson.Partner1)?.Amount ?? 0)).ToArray();
+        var p2 = months.Select(m => (double)(_balances.FirstOrDefault(b => b.Month == m && b.Person == FinancePerson.Partner2)?.Amount ?? 0)).ToArray();
+
+        _balanceChartSeries = new List<ChartSeries<double>>
+        {
+            new() { Name = _partner1, Data = p1 },
+            new() { Name = _partner2, Data = p2 }
+        };
+
+        var lastMonth = months.Last();
+        _latestTotal = _balances.Where(b => b.Month == lastMonth).Sum(b => b.Amount);
+    }
+
+    private string Money(decimal value) => value.ToString("N0", _culture) + " " + _currency;
+
+    private async Task OpenBalanceDialogAsync()
+    {
+        var parameters = new DialogParameters<BalanceDialog>
+        {
+            { x => x.DefaultPerson, FinancePerson.Partner1 },
+            { x => x.Partner1Name, _partner1 },
+            { x => x.Partner2Name, _partner2 },
+            { x => x.Currency, _currency }
+        };
+        var options = new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true, CloseButton = true };
+        var dialog = await DialogService.ShowAsync<BalanceDialog>("Kontostand eintragen", parameters, options);
+        var result = await dialog.Result;
+
+        if (result is not null && !result.Canceled && result.Data is FinanceBalance balance)
+        {
+            await FinanceService.SaveBalanceAsync(balance);
+            Snackbar.Add("Kontostand gespeichert.", Severity.Success);
+            _balances = await FinanceService.GetBalancesAsync(forceRefresh: true);
+            BuildBalanceChart();
+            StateHasChanged();
+        }
+    }
+
+    private void RebuildViews()
+    {
+        // Termine nach Tag gruppieren (für Kalenderpunkte).
+        _itemsByDay = _allItems
+            .GroupBy(s => s.StartTime.Date)
+            .ToDictionary(g => g.Key, g => g.OrderBy(s => s.StartTime).ToList());
+
+        // Chronologische Übersicht nach Tag gruppiert.
+        _groupedItems = _allItems
+            .OrderBy(s => s.StartTime)
+            .GroupBy(s => s.StartTime.Date)
+            .ToList();
+
+        BuildCalendar();
+    }
+
+    private void BuildCalendar()
+    {
+        _calendarDays = new List<DateTime>();
+        var first = new DateTime(_current.Year, _current.Month, 1);
+        // Montag als Wochenstart: DayOfWeek Sonntag = 0 → auf Mo-basiert umrechnen.
+        int offset = ((int)first.DayOfWeek + 6) % 7;
+        var start = first.AddDays(-offset);
+        // Immer 6 Wochen (42 Tage) für ein stabiles Raster.
+        for (int i = 0; i < 42; i++)
+        {
+            _calendarDays.Add(start.AddDays(i));
+        }
+    }
+
+    private void PrevMonth()
+    {
+        _current = _current.AddMonths(-1);
+        BuildCalendar();
+    }
+
+    private void NextMonth()
+    {
+        _current = _current.AddMonths(1);
+        BuildCalendar();
+    }
+
+    private void GoToday()
+    {
+        _current = new DateTime(DateTime.Today.Year, DateTime.Today.Month, 1);
+        BuildCalendar();
+    }
+
+    private Task OnDayClick(DateTime day)
+    {
+        if (!_canEdit) return Task.CompletedTask;
+        return OpenDialogAsync(null, presetDate: day.Date);
+    }
+
+    private async Task OpenDialogAsync(ScheduleItem? item, DateTime? presetDate = null)
+    {
+        var parameters = new DialogParameters<ScheduleDialog>
+        {
+            { x => x.Item, item },
+            { x => x.PresetDate, presetDate }
+        };
+        var options = new DialogOptions { MaxWidth = MaxWidth.Medium, FullWidth = true, CloseButton = true };
+        var dialog = await DialogService.ShowAsync<ScheduleDialog>(
+            item is null ? "Termin hinzufügen" : "Termin bearbeiten", parameters, options);
+        var result = await dialog.Result;
+
+        if (result is not null && !result.Canceled && result.Data is ScheduleItem edited)
+        {
+            if (item is null)
+            {
+                await ScheduleService.AddAsync(edited);
+                Snackbar.Add($"'{edited.Title}' wurde hinzugefügt.", Severity.Success);
+            }
+            else
+            {
+                await ScheduleService.UpdateAsync(edited);
+                Snackbar.Add($"'{edited.Title}' wurde aktualisiert.", Severity.Success);
+            }
+            await ReloadAsync();
+            // Zum Monat des Termins springen, damit er sichtbar ist.
+            _current = new DateTime(edited.StartTime.Year, edited.StartTime.Month, 1);
+            BuildCalendar();
+        }
+    }
+
+    private async Task DeleteAsync(ScheduleItem item)
+    {
+        var opts = new MessageBoxOptions
+        {
+            Title = "Termin löschen",
+            Message = $"'{item.Title}' wirklich löschen?",
+            YesText = "Löschen",
+            CancelText = "Abbrechen"
+        };
+        if (await DialogService.ShowMessageBoxAsync(opts) == true)
+        {
+            await ScheduleService.DeleteAsync(item.Id);
+            Snackbar.Add($"'{item.Title}' wurde gelöscht.", Severity.Info);
+            await ReloadAsync();
+        }
+    }
+
+    // ── Kategorie-Metadaten: Farbe + Icon je Kategorie ───────────────────────
+    private record CategoryStyle(Color Color, string Icon);
+
+    private static CategoryStyle CategoryMeta(ScheduleCategory cat) => cat switch
+    {
+        ScheduleCategory.Vorbereitung => new(Color.Info,      Icons.Material.Filled.Build),
+        ScheduleCategory.Trauung      => new(Color.Secondary, Icons.Material.Filled.Favorite),
+        ScheduleCategory.Empfang      => new(Color.Success,   Icons.Material.Filled.LocalBar),
+        ScheduleCategory.Dinner       => new(Color.Warning,   Icons.Material.Filled.Restaurant),
+        ScheduleCategory.Party        => new(Color.Error,     Icons.Material.Filled.MusicNote),
+        _                             => new(Color.Primary,   Icons.Material.Filled.Star)
+    };
+
+    // Kalenderpunkte brauchen konkrete Farbwerte für das inline style.
+    private static string ColorHex(Color color) => color switch
+    {
+        Color.Info      => "#2196F3",
+        Color.Secondary => "#E8B4B8",
+        Color.Success   => "#4CAF50",
+        Color.Warning   => "#FF9800",
+        Color.Error     => "#F44336",
+        _               => "#8B6F47"
+    };
+}
