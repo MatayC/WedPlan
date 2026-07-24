@@ -21,7 +21,7 @@ Moderne, mobile-first Web-App zur gemeinsamen Hochzeitsplanung – Blazor Web Ap
 
 | Dienst | Zweck | Link |
 |--------|-------|------|
-| **Live-Website** | Die öffentliche App | _<Render-URL hier eintragen, z.B. https://wedplan.onrender.com>_ |
+| **Live-Website** | Die öffentliche App | https://wedplan-1snh.onrender.com |
 | **GitHub Repository** | Quellcode & Deployment-Trigger | https://github.com/MatayC/WedPlan |
 | **Render Dashboard** | Hosting der App (Free Tier) | https://dashboard.render.com |
 | **Supabase Dashboard** | Datenbank, Auth, Storage | https://supabase.com/dashboard |
@@ -79,7 +79,7 @@ Der Render Free Tier legt die App nach ~15 Min Inaktivität schlafen (Kaltstart 
 
 - **Monitor:** https://dashboard.uptimerobot.com/monitors/803585174
 - **Typ:** HTTP(s), **Intervall:** 5 Minuten
-- **URL:** _<Render-URL der App>_
+- **URL:** https://wedplan-1snh.onrender.com
 
 ---
 
@@ -93,7 +93,7 @@ Der Render Free Tier legt die App nach ~15 Min Inaktivität schlafen (Kaltstart 
 Nach dem Deploy die Live-Domain hinterlegen:
 **Supabase → Authentication → URL Configuration → Redirect URLs**
 ```
-https://<deine-render-url>.onrender.com/**
+https://wedplan-1snh.onrender.com/**
 ```
 
 ---
