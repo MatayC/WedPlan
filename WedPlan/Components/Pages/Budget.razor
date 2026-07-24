@@ -502,33 +502,49 @@ else
         ChartPalette = new[] { "#C9A227", "#E8B4B8", "#B98A8D", "#7BA17D", "#8AA0B5", "#D9A441", "#C15B5B", "#4A8C6F", "#A3B899", "#D4A9A1" }
     };
 
+    protected override async Task OnInitializedAsync()
+    {
+        // Wenn die Daten bereits vorgeladen sind (Prefetch im Layout),
+        // sofort ohne Spinner rendern – der Klick fühlt sich verzögerungsfrei an.
+        if (BudgetService.HasCache && Permissions.IsLoaded)
+        {
+            await LoadDataAsync();
+            _loading = false;
+        }
+    }
+
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (firstRender)
+        if (firstRender && _loading)
         {
-            // Unabhängige Ladevorgänge parallel ausführen → weniger Wartezeit.
-            var permTask = Permissions.EnsureLoadedAsync();
-            var settingsTask = SettingsService.GetAsync();
-            var itemsTask = BudgetService.GetAllAsync();
-            await Task.WhenAll(permTask, settingsTask, itemsTask);
-
-            _canEdit = Permissions.CanEdit(WeddingPages.Budget);
-            var settings = await settingsTask;
-            _settings = settings;
-            _currency = settings.Currency ?? "EUR";
-            _totalBudget = settings.TotalBudget;
-            _savings1 = settings.SavingsPartner1;
-            _savings2 = settings.SavingsPartner2;
-            _monthly1 = settings.MonthlySavingPartner1;
-            _monthly2 = settings.MonthlySavingPartner2;
-            RecalculateSavings();
-
-            _allItems = await itemsTask;
-            RecalculateStats();
-            ApplyFilters();
+            await LoadDataAsync();
             _loading = false;
             StateHasChanged();
         }
+    }
+
+    private async Task LoadDataAsync()
+    {
+        // Unabhängige Ladevorgänge parallel ausführen → weniger Wartezeit.
+        var permTask = Permissions.EnsureLoadedAsync();
+        var settingsTask = SettingsService.GetAsync();
+        var itemsTask = BudgetService.GetAllAsync();
+        await Task.WhenAll(permTask, settingsTask, itemsTask);
+
+        _canEdit = Permissions.CanEdit(WeddingPages.Budget);
+        var settings = await settingsTask;
+        _settings = settings;
+        _currency = settings.Currency ?? "EUR";
+        _totalBudget = settings.TotalBudget;
+        _savings1 = settings.SavingsPartner1;
+        _savings2 = settings.SavingsPartner2;
+        _monthly1 = settings.MonthlySavingPartner1;
+        _monthly2 = settings.MonthlySavingPartner2;
+        RecalculateSavings();
+
+        _allItems = await itemsTask;
+        RecalculateStats();
+        ApplyFilters();
     }
 
     private async Task ReloadAsync()

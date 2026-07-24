@@ -314,9 +314,26 @@ else
                 g.Name.Contains(_guestSearch, StringComparison.OrdinalIgnoreCase));
 
     // ── Lifecycle ──────────────────────────────────────────────────────────────
+    protected override async Task OnInitializedAsync()
+    {
+        // Bereits vorgeladen (Prefetch)? Sofort ohne Spinner rendern.
+        if (SeatingService.HasCache && GuestService.HasCache && Permissions.IsLoaded)
+        {
+            await LoadInitialAsync();
+            _loaded = true;
+        }
+    }
+
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (!firstRender) return;
+        if (!firstRender || _loaded) return;
+        await LoadInitialAsync();
+        _loaded = true;
+        StateHasChanged();
+    }
+
+    private async Task LoadInitialAsync()
+    {
         // Unabhängige Ladevorgänge parallel ausführen → weniger Wartezeit.
         var permTask = Permissions.EnsureLoadedAsync();
         var tablesTask = SeatingService.GetAllAsync();
@@ -327,8 +344,6 @@ else
         _tables    = await tablesTask;
         _allGuests = await guestsTask;
         await ReconcileAsync();
-        _loaded = true;
-        StateHasChanged();
     }
 
     private async Task LoadDataAsync()

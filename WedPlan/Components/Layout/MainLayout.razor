@@ -8,6 +8,13 @@
 @inject WeddingContext WeddingContext
 @inject WeddingRealtimeService Realtime
 @inject NavigationManager Navigation
+@inject PermissionService Permissions
+@inject IGuestService GuestService
+@inject IBudgetService BudgetService
+@inject ITaskService TaskService
+@inject IScheduleService ScheduleService
+@inject ISeatingService SeatingService
+@inject IApartmentService ApartmentService
 
 @* Zentrale MudBlazor-Provider: Theme, Popover, Dialog (Bestätigungen) und Snackbar (Feedback). *@
 <MudThemeProvider Theme="WeddingTheme.Theme" @bind-IsDarkMode="_isDarkMode" />
@@ -140,6 +147,31 @@ else
         // Erst jetzt ist alles bestätigt -> Layout-Inhalt freigeben.
         _ready = true;
         StateHasChanged();
+
+        // Alle Seiten-Daten im Hintergrund vorladen, damit jeder Klick
+        // sofort da ist (kein Ladevorgang beim Seitenwechsel).
+        _ = PrefetchAllAsync();
+    }
+
+    // Lädt still im Hintergrund alle Daten aller Seiten in den Service-Cache.
+    // Fehler werden bewusst ignoriert – es ist nur ein Vorab-Ladevorgang.
+    private async Task PrefetchAllAsync()
+    {
+        try
+        {
+            await Task.WhenAll(
+                Permissions.EnsureLoadedAsync(),
+                GuestService.GetAllAsync(),
+                BudgetService.GetAllAsync(),
+                TaskService.GetAllAsync(),
+                ScheduleService.GetAllAsync(),
+                SeatingService.GetAllAsync(),
+                ApartmentService.GetAllAsync());
+        }
+        catch
+        {
+            // Vorab-Laden ist optional; die Seiten laden bei Bedarf selbst nach.
+        }
     }
 
     // Abmelden und zur Login-Seite wechseln.

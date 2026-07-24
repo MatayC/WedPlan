@@ -292,26 +292,41 @@ else
     private ScheduleItem? _nextItem;
     private DateTime? _weddingDate;
 
+    protected override async Task OnInitializedAsync()
+    {
+        // Bereits vorgeladen (Prefetch)? Sofort ohne Spinner rendern.
+        if (ScheduleService.HasCache && Permissions.IsLoaded)
+        {
+            await LoadDataAsync();
+            _loading = false;
+        }
+    }
+
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (firstRender)
+        if (firstRender && _loading)
         {
-            // Unabhängige Ladevorgänge parallel ausführen → weniger Wartezeit.
-            var permTask = Permissions.EnsureLoadedAsync();
-            var settingsTask = SettingsService.GetAsync();
-            var itemsTask = ScheduleService.GetAllAsync();
-            await Task.WhenAll(permTask, settingsTask, itemsTask);
-
-            _canEdit = Permissions.CanEdit(WeddingPages.Schedule);
-            _weddingDate = (await settingsTask).WeddingDate;
-
-            var all = await itemsTask; // bereits nach StartTime sortiert
-            _weddingDayItems = all.Where(s => !s.IsMilestone).OrderBy(s => s.StartTime).ToList();
-            _milestoneItems  = all.Where(s => s.IsMilestone).OrderBy(s => s.StartTime).ToList();
-            _nextItem = _weddingDayItems.FirstOrDefault(s => s.StartTime >= DateTime.Now);
+            await LoadDataAsync();
             _loading = false;
             StateHasChanged();
         }
+    }
+
+    private async Task LoadDataAsync()
+    {
+        // Unabhängige Ladevorgänge parallel ausführen → weniger Wartezeit.
+        var permTask = Permissions.EnsureLoadedAsync();
+        var settingsTask = SettingsService.GetAsync();
+        var itemsTask = ScheduleService.GetAllAsync();
+        await Task.WhenAll(permTask, settingsTask, itemsTask);
+
+        _canEdit = Permissions.CanEdit(WeddingPages.Schedule);
+        _weddingDate = (await settingsTask).WeddingDate;
+
+        var all = await itemsTask; // bereits nach StartTime sortiert
+        _weddingDayItems = all.Where(s => !s.IsMilestone).OrderBy(s => s.StartTime).ToList();
+        _milestoneItems  = all.Where(s => s.IsMilestone).OrderBy(s => s.StartTime).ToList();
+        _nextItem = _weddingDayItems.FirstOrDefault(s => s.StartTime >= DateTime.Now);
     }
 
     private async Task ReloadAsync()

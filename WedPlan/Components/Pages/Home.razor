@@ -430,10 +430,23 @@ else
         ChartPalette = new[] { "#C9A227", "#E8B4B8", "#B98A8D", "#7BA17D", "#8AA0B5", "#D9A441", "#C15B5B" }
     };
 
+    protected override async Task OnInitializedAsync()
+    {
+        // Sind alle Daten bereits vorgeladen (Prefetch/Cache)? Dann sofort
+        // ohne Ladeanzeige rendern – der Wechsel zum Dashboard ist verzögerungsfrei.
+        if (GuestService.HasCache && BudgetService.HasCache
+            && TaskService.HasCache && ScheduleService.HasCache)
+        {
+            await LoadDashboardAsync();
+            _loading = false;
+            Realtime.OnSettingsChanged += OnRealtimeSettingsChanged;
+        }
+    }
+
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         // LocalStorage ist erst nach dem ersten (interaktiven) Render verfügbar.
-        if (firstRender)
+        if (firstRender && _loading)
         {
             await LoadDashboardAsync();
             _loading = false;

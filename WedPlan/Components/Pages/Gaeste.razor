@@ -268,22 +268,37 @@ else
     private int _countDeclined;
     private int _countPending;
 
+    protected override async Task OnInitializedAsync()
+    {
+        // Bereits vorgeladen (Prefetch)? Sofort ohne Spinner rendern.
+        if (GuestService.HasCache && Permissions.IsLoaded)
+        {
+            await LoadDataAsync();
+            _loading = false;
+        }
+    }
+
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (firstRender)
+        if (firstRender && _loading)
         {
-            // Unabhängige Ladevorgänge parallel ausführen → weniger Wartezeit.
-            var permTask = Permissions.EnsureLoadedAsync();
-            var guestsTask = GuestService.GetAllAsync();
-            await Task.WhenAll(permTask, guestsTask);
-
-            _canEdit = Permissions.CanEdit(WeddingPages.Guests);
-            _allGuests = await guestsTask;
-            RecalculateStats();
-            ApplyFilters();
+            await LoadDataAsync();
             _loading = false;
             StateHasChanged();
         }
+    }
+
+    private async Task LoadDataAsync()
+    {
+        // Unabhängige Ladevorgänge parallel ausführen → weniger Wartezeit.
+        var permTask = Permissions.EnsureLoadedAsync();
+        var guestsTask = GuestService.GetAllAsync();
+        await Task.WhenAll(permTask, guestsTask);
+
+        _canEdit = Permissions.CanEdit(WeddingPages.Guests);
+        _allGuests = await guestsTask;
+        RecalculateStats();
+        ApplyFilters();
     }
 
     // Lädt die Gäste aus dem Service neu und aktualisiert Statistik + Ansicht.

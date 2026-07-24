@@ -265,27 +265,42 @@ else
     private int _open;
     private int _donePercent;
 
+    protected override async Task OnInitializedAsync()
+    {
+        // Bereits vorgeladen (Prefetch)? Sofort ohne Spinner rendern.
+        if (TaskService.HasCache && Permissions.IsLoaded)
+        {
+            await LoadDataAsync();
+            _loading = false;
+        }
+    }
+
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (firstRender)
+        if (firstRender && _loading)
         {
-            // Unabhängige Ladevorgänge parallel ausführen → weniger Wartezeit.
-            var permTask = Permissions.EnsureLoadedAsync();
-            var settingsTask = SettingsService.GetAsync();
-            var itemsTask = TaskService.GetAllAsync();
-            await Task.WhenAll(permTask, settingsTask, itemsTask);
-
-            _canEdit = Permissions.CanEdit(WeddingPages.Tasks);
-            var settings = await settingsTask;
-            _partner1 = string.IsNullOrWhiteSpace(settings.Partner1Name) ? "Partner 1" : settings.Partner1Name;
-            _partner2 = string.IsNullOrWhiteSpace(settings.Partner2Name) ? "Partner 2" : settings.Partner2Name;
-
-            _allItems = await itemsTask;
-            RecalculateStats();
-            ApplyFilters();
+            await LoadDataAsync();
             _loading = false;
             StateHasChanged();
         }
+    }
+
+    private async Task LoadDataAsync()
+    {
+        // Unabhängige Ladevorgänge parallel ausführen → weniger Wartezeit.
+        var permTask = Permissions.EnsureLoadedAsync();
+        var settingsTask = SettingsService.GetAsync();
+        var itemsTask = TaskService.GetAllAsync();
+        await Task.WhenAll(permTask, settingsTask, itemsTask);
+
+        _canEdit = Permissions.CanEdit(WeddingPages.Tasks);
+        var settings = await settingsTask;
+        _partner1 = string.IsNullOrWhiteSpace(settings.Partner1Name) ? "Partner 1" : settings.Partner1Name;
+        _partner2 = string.IsNullOrWhiteSpace(settings.Partner2Name) ? "Partner 2" : settings.Partner2Name;
+
+        _allItems = await itemsTask;
+        RecalculateStats();
+        ApplyFilters();
     }
 
     private async Task ReloadAsync()
