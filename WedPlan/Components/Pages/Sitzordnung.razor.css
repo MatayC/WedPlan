@@ -239,25 +239,25 @@
         line-height: 1.1;
     }
 
-    /* Tischkarten kleiner darstellen */
+    /* Tischkarten kompakt, aber länglich (volle Breite) */
     ::deep .table-card {
         padding: 4px;
     }
 
     ::deep .table-card .mud-card-content {
-        padding: 8px;
+        padding: 10px 14px;
     }
 
     ::deep .table-card .mud-card-header {
-        padding: 8px;
+        padding: 10px 14px;
     }
 
     ::deep .table-card .mud-typography-h6 {
-        font-size: 0.95rem;
+        font-size: 1rem;
     }
 
     .assigned-guest-list {
-        max-height: 180px;
+        max-height: 200px;
     }
 }
 

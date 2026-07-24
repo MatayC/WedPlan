@@ -171,7 +171,7 @@
                         var overbook = table.IsOverbooked(_allGuests);
                         var assigned = _allGuests.Where(g => table.AssignedGuestIds.Contains(g.Id)).ToList();
 
-                        <MudItem xs="6" sm="6" lg="4">
+                        <MudItem xs="12" sm="6" lg="4">
                             <MudCard Class="@($"table-card {(overbook ? "table-card--overbooked" : "")} table-shape--{table.Shape.ToString().ToLower()}")"
                                      Elevation="3">
                                 <MudCardHeader>
