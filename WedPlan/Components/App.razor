@@ -113,6 +113,62 @@
     <script src="@Assets["_framework/blazor.web.js"]"></script>
     <script src="_content/MudBlazor/MudBlazor.min.js"></script>
 
+    <!-- ═══ Robustes Kopieren/Teilen (iOS Safari kompatibel) ═══ -->
+    <!-- navigator.clipboard schlägt auf iOS häufig fehl; deshalb mit execCommand-Fallback,
+         und optional die native Teilen-Funktion (Web Share API). -->
+    <script>
+        window.wedplanClipboard = {
+            copy: function (text) {
+                try {
+                    if (navigator.clipboard && window.isSecureContext) {
+                        return navigator.clipboard.writeText(text)
+                            .then(function () { return true; })
+                            .catch(function () { return window.wedplanClipboard._legacyCopy(text); });
+                    }
+                } catch (e) { /* auf Fallback ausweichen */ }
+                return Promise.resolve(window.wedplanClipboard._legacyCopy(text));
+            },
+            _legacyCopy: function (text) {
+                try {
+                    var ta = document.createElement('textarea');
+                    ta.value = text;
+                    ta.setAttribute('readonly', '');
+                    ta.contentEditable = 'true';
+                    ta.style.position = 'fixed';
+                    ta.style.top = '0';
+                    ta.style.left = '0';
+                    ta.style.opacity = '0';
+                    document.body.appendChild(ta);
+                    // iOS benötigt eine echte Auswahl per Range.
+                    var range = document.createRange();
+                    range.selectNodeContents(ta);
+                    var sel = window.getSelection();
+                    sel.removeAllRanges();
+                    sel.addRange(range);
+                    ta.setSelectionRange(0, text.length);
+                    var ok = document.execCommand('copy');
+                    document.body.removeChild(ta);
+                    return ok;
+                } catch (e) {
+                    return false;
+                }
+            },
+            share: function (title, text, url) {
+                try {
+                    if (navigator.share) {
+                        return navigator.share({ title: title, text: text, url: url })
+                            .then(function () { return true; })
+                            .catch(function () { return false; });
+                    }
+                } catch (e) { /* nicht unterstützt */ }
+                return Promise.resolve(false);
+            },
+            canShare: function () {
+                return !!navigator.share;
+            }
+        };
+    </script>
+
     <!-- ═══ Splash entfernen, sobald Blazor gestartet ist ═══ -->
     <script>
         (function () {

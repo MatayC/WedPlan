@@ -46,10 +46,16 @@ else
                               Adornment="Adornment.End" AdornmentIcon="@Icons.Material.Filled.ContentCopy"
                               OnAdornmentClick="CopyLinkAsync" />
 
-                <MudButton Variant="Variant.Outlined" Color="Color.Primary"
-                           StartIcon="@Icons.Material.Filled.ContentCopy" OnClick="CopyLinkAsync">
-                    Link kopieren
-                </MudButton>
+                <div class="d-flex flex-wrap gap-2">
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                               StartIcon="@Icons.Material.Filled.IosShare" OnClick="ShareLinkAsync">
+                        Einladung teilen
+                    </MudButton>
+                    <MudButton Variant="Variant.Outlined" Color="Color.Primary"
+                               StartIcon="@Icons.Material.Filled.ContentCopy" OnClick="CopyLinkAsync">
+                        Link kopieren
+                    </MudButton>
+                </div>
             }
         </MudCardContent>
     </MudCard>
@@ -447,14 +453,31 @@ else
 
     private async Task CopyCodeAsync()
     {
-        await JS.InvokeVoidAsync("navigator.clipboard.writeText", WeddingContext.InviteCode);
-        Snackbar.Add("Code kopiert.", Severity.Success);
+        var ok = await JS.InvokeAsync<bool>("wedplanClipboard.copy", WeddingContext.InviteCode);
+        Snackbar.Add(ok ? "Code kopiert." : "Kopieren nicht möglich – bitte Code manuell markieren.",
+            ok ? Severity.Success : Severity.Warning);
     }
 
     private async Task CopyLinkAsync()
     {
-        await JS.InvokeVoidAsync("navigator.clipboard.writeText", InviteLink);
-        Snackbar.Add("Link kopiert.", Severity.Success);
+        var ok = await JS.InvokeAsync<bool>("wedplanClipboard.copy", InviteLink);
+        Snackbar.Add(ok ? "Link kopiert." : "Kopieren nicht möglich – bitte Link manuell markieren.",
+            ok ? Severity.Success : Severity.Warning);
+    }
+
+    // Öffnet auf unterstützten Geräten (v.a. iOS/Android) das native Teilen-Menü.
+    // Fällt sonst auf das Kopieren des Links in die Zwischenablage zurück.
+    private async Task ShareLinkAsync()
+    {
+        var shared = await JS.InvokeAsync<bool>("wedplanClipboard.share",
+            "WedPlan – Einladung",
+            "Plane mit mir unsere Hochzeit auf WedPlan!",
+            InviteLink);
+
+        if (!shared)
+        {
+            await CopyLinkAsync();
+        }
     }
 
     private async Task SwitchAsync(Guid weddingId)
