@@ -15,6 +15,19 @@
 <MudDialogProvider />
 <MudSnackbarProvider />
 
+@* ═══ Auth-Guard ═══
+   Das Dashboard/Layout wird ERST gerendert, wenn die Anmeldung bestätigt ist.
+   Solange die Prüfung läuft (oder umgeleitet wird), sieht der Nutzer nur einen Loader –
+   niemals kurz das Dashboard, obwohl er nicht angemeldet ist. *@
+@if (!_ready)
+{
+    <div class="auth-guard-loader">
+        <MudProgressCircular Color="Color.Primary" Indeterminate="true" Size="Size.Large" />
+        <MudText Typo="Typo.body1" Class="mt-4 mud-text-secondary">Einen Moment …</MudText>
+    </div>
+}
+else
+{
 <MudLayout>
     @* Obere AppBar mit Hamburger-Menü und Dark-Mode-Umschalter. *@
     <MudAppBar Elevation="1">
@@ -72,6 +85,7 @@
         <MudBottomNavigationItem Label="Aufgaben" Icon="@Icons.Material.Filled.Checklist"  OnClick="@(() => Navigate("/aufgaben"))" />
     </MudBottomNavigation>
 </MudLayout>
+}
 
 <div id="blazor-error-ui" data-nosnippet>
     An unhandled error has occurred.
@@ -89,6 +103,9 @@
     // URL des Titelbilds der aktiven Hochzeit (für das AppBar-Thumbnail).
     private string? _coverUrl;
 
+    // Auth-Guard: Layout-Inhalt wird erst gerendert, wenn Anmeldung + Projekt bestätigt sind.
+    private bool _ready;
+
     protected override void OnInitialized()
     {
         // Event-Handler registrieren (kein JS-Interop nötig, daher hier sicher).
@@ -99,7 +116,7 @@
     {
         if (!firstRender) return;
 
-        // Nicht angemeldete Benutzer zur Login-Seite umleiten.
+        // Nicht angemeldete Benutzer zur Login-Seite umleiten – Dashboard bleibt verborgen.
         if (!await AuthService.IsLoggedInAsync())
         {
             Navigation.NavigateTo("/login", replace: true);
@@ -120,6 +137,8 @@
         Realtime.OnSettingsChanged += OnRealtimeSettingsChanged;
         await Realtime.StartAsync();
 
+        // Erst jetzt ist alles bestätigt -> Layout-Inhalt freigeben.
+        _ready = true;
         StateHasChanged();
     }
 
