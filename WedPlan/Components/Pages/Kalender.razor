@@ -394,11 +394,18 @@ else
 
         if (result is not null && !result.Canceled && result.Data is FinanceBalance balance)
         {
-            await FinanceService.SaveBalanceAsync(balance);
-            Snackbar.Add("Kontostand gespeichert.", Severity.Success);
-            _balances = await FinanceService.GetBalancesAsync(forceRefresh: true);
-            BuildBalanceChart();
-            StateHasChanged();
+            try
+            {
+                await FinanceService.SaveBalanceAsync(balance);
+                Snackbar.Add("Kontostand gespeichert.", Severity.Success);
+                _balances = await FinanceService.GetBalancesAsync(forceRefresh: true);
+                BuildBalanceChart();
+                StateHasChanged();
+            }
+            catch (Exception ex)
+            {
+                Snackbar.Add($"Kontostand konnte nicht gespeichert werden: {ex.Message}", Severity.Error);
+            }
         }
     }
 

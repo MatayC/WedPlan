@@ -116,16 +116,19 @@ public class FinanceService : IFinanceService
     {
         var client = await _provider.GetClientAsync();
         var month = new DateTime(balance.Month.Year, balance.Month.Month, 1);
+        balance.Month = month;
 
         // Existiert bereits ein Kontostand für diese Person + diesen Monat?
-        var existing = await client
+        // Wir laden alle Kontostände der Hochzeit und filtern in-memory, um
+        // fehleranfällige Datums-Gleichheitsabfragen gegen die date-Spalte zu vermeiden.
+        var all = await client
             .From<FinanceBalanceRow>()
-            .Where(b => b.WeddingId == WeddingId
-                     && b.Person == (int)balance.Person
-                     && b.Month == month)
+            .Where(b => b.WeddingId == WeddingId && b.Person == (int)balance.Person)
             .Get();
 
-        var current = existing.Models.FirstOrDefault();
+        var current = all.Models
+            .FirstOrDefault(b => b.Month.Year == month.Year && b.Month.Month == month.Month);
+
         if (current is not null)
         {
             balance.Id = current.Id;

@@ -432,17 +432,31 @@ else
 
         if (result is not null && !result.Canceled && result.Data is FinanceBalance balance)
         {
-            await FinanceService.SaveBalanceAsync(balance);
-            Snackbar.Add("Kontostand gespeichert.", Severity.Success);
-            await ReloadAsync();
+            try
+            {
+                await FinanceService.SaveBalanceAsync(balance);
+                Snackbar.Add("Kontostand gespeichert.", Severity.Success);
+                await ReloadAsync();
+            }
+            catch (Exception ex)
+            {
+                Snackbar.Add($"Kontostand konnte nicht gespeichert werden: {ex.Message}", Severity.Error);
+            }
         }
     }
 
     private async Task DeleteBalanceAsync(FinanceBalance balance)
     {
-        await FinanceService.DeleteBalanceAsync(balance.Id);
-        Snackbar.Add("Kontostand gelöscht.", Severity.Info);
-        await ReloadAsync();
+        try
+        {
+            await FinanceService.DeleteBalanceAsync(balance.Id);
+            Snackbar.Add("Kontostand gelöscht.", Severity.Info);
+            await ReloadAsync();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Kontostand konnte nicht gelöscht werden: {ex.Message}", Severity.Error);
+        }
     }
 
     // ── Darstellungshelfer ───────────────────────────────────────
