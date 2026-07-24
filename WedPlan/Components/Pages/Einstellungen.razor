@@ -496,10 +496,13 @@ else
         {
             Snackbar.Add("Hochzeit gelöscht.", Severity.Success);
 
-            // Keine Hochzeit mehr aktiv? -> Onboarding, sonst neu laden.
-            if (!WeddingContext.HasWedding)
+            // Nach dem Löschen prüfen, ob überhaupt noch ein Projekt aktiv ist.
+            // DeleteWeddingAsync versucht bereits, auf ein anderes Projekt umzuschalten.
+            // Bleibt keines übrig -> zwingend ins Onboarding (nicht im Dashboard bleiben).
+            var hasAnother = await WeddingService.LoadActiveWeddingAsync();
+            if (!hasAnother || !WeddingContext.HasWedding)
             {
-                Navigation.NavigateTo("/onboarding", forceLoad: true);
+                Navigation.NavigateTo("/onboarding?new=1", forceLoad: true);
             }
             else
             {
