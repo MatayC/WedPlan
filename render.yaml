@@ -14,6 +14,9 @@ services:
       # ASP.NET Core Umgebung auf Produktion setzen.
       - key: ASPNETCORE_ENVIRONMENT
         value: Production
+      # Datei-Überwachung (inotify) deaktivieren – verhindert "inotify instances reached".
+      - key: DOTNET_hostBuilder__reloadConfigOnChange
+        value: "false"
       # Supabase-Zugangsdaten – im Render-Dashboard eintragen (nicht ins Repo committen!).
       - key: SUPABASE_URL
         sync: false

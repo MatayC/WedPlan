@@ -19,6 +19,9 @@ COPY --from=build /app/publish .
 # Render (und ähnliche Plattformen) geben den Port über die Umgebungsvariable PORT vor.
 # Kestrel wird in Program.cs entsprechend darauf gebunden. Standard 8080 als Fallback.
 ENV ASPNETCORE_ENVIRONMENT=Production
+# Datei-Überwachung (inotify) deaktivieren – Container haben ein niedriges inotify-Limit,
+# das sonst beim Start zu "inotify instances reached" führt. In Produktion nicht benötigt.
+ENV DOTNET_hostBuilder__reloadConfigOnChange=false
 EXPOSE 8080
 
 ENTRYPOINT ["dotnet", "WedPlan.dll"]
