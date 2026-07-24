@@ -78,8 +78,37 @@
 
 /* ── AppBar Titel-Schrift ─────────────────────────────────────── */
 ::deep .mud-appbar .mud-typography-h5 {
-    font-family: 'Cormorant Garamond', Georgia, serif;
+    font-family: 'Plus Jakarta Sans', 'Segoe UI', sans-serif;
+    font-weight: 800;
+    letter-spacing: -0.5px;
+}
+
+/* ── Bottom Navigation: modernere, klar lesbare Optik ─────────── */
+::deep .mud-bottom-navigation {
+    box-shadow: 0 -2px 16px rgba(46, 42, 40, 0.08);
+    backdrop-filter: blur(8px);
+}
+
+::deep .mud-bottom-nav-item .mud-typography {
+    font-size: 0.72rem;
     font-weight: 600;
-    letter-spacing: 0.03em;
+    letter-spacing: 0.1px;
+    margin-top: 2px;
+}
+
+::deep .mud-bottom-nav-item .mud-icon-root {
+    font-size: 1.5rem;
+}
+
+/* ── Buttons: modernere, weichere Optik ───────────────────────── */
+::deep .mud-button-root {
+    border-radius: 14px;
+    text-transform: none;
+    font-weight: 600;
+}
+
+/* ── AppBar: dezenter Verlauf für edlere Optik ────────────────── */
+::deep .mud-appbar {
+    backdrop-filter: blur(6px);
 }
 

@@ -65,8 +65,9 @@
 
 /* Text im Zentrum des Donut-Charts */
 .donut-inner-text {
-    font-family: "Poppins", sans-serif;
+    font-family: "Plus Jakarta Sans", "Segoe UI", sans-serif;
     font-size: 0.9rem;
+    font-weight: 600;
     fill: var(--mud-palette-text-primary);
 }
 

@@ -5,7 +5,7 @@
 
 /* ── Reset / Base ─────────────────────────────────────────────── */
 html, body {
-    font-family: 'Poppins', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+    font-family: 'Plus Jakarta Sans', 'Segoe UI', 'Helvetica Neue', Helvetica, Arial, sans-serif;
     /* Verhindert horizontales Scrollen auf mobilen Geräten */
     overflow-x: hidden;
     /* Smooth scrolling für alle Browser */
@@ -13,6 +13,8 @@ html, body {
     /* iOS: verhindert automatisches Font-Size-Anpassen beim Rotieren */
     -webkit-text-size-adjust: 100%;
     text-size-adjust: 100%;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
 }
 
 /* ── Touch-Optimierungen ──────────────────────────────────────── */
@@ -63,13 +65,13 @@ body {
     -webkit-overflow-scrolling: touch;
 }
 
-/* ── Typografie: Kopfzeilen mit Hochzeitsschrift ──────────────── */
+/* ── Typografie: klare, moderne Überschriften ─────────────────── */
 h1, h2, h3, h4, h5,
 .mud-typography-h1,
 .mud-typography-h2,
 .mud-typography-h3,
 .mud-typography-h4 {
-    font-family: 'Cormorant Garamond', Georgia, serif;
+    font-family: 'Plus Jakarta Sans', 'Segoe UI', sans-serif;
 }
 
 /* ── Links ────────────────────────────────────────────────────── */
@@ -139,18 +141,40 @@ h1:focus { outline: none; }
 
 /* ── Mobile Responsive Helpers ────────────────────────────────── */
 @media (max-width: 599px) {
-    /* Kleinere Abstände auf Handy */
+    /* Etwas mehr Luft am Rand, damit Inhalte nicht gequetscht wirken */
     .mud-container {
-        padding-left: 12px !important;
-        padding-right: 12px !important;
+        padding-left: 16px !important;
+        padding-right: 16px !important;
     }
+
+    /* Mehr vertikaler Abstand zwischen Grid-Karten für ein luftiges Layout */
+    .mud-grid > .mud-grid-item {
+        padding-top: 10px !important;
+        padding-bottom: 10px !important;
+    }
+
+    /* Karten-Innenabstand großzügiger für bessere Lesbarkeit */
+    .mud-card-content {
+        padding: 20px !important;
+    }
+
+    /* Etwas kompaktere, aber klar lesbare große Zahlen/Überschriften */
+    .mud-typography-h1 { font-size: 2.6rem !important; }
+    .mud-typography-h2 { font-size: 2.1rem !important; }
+    .mud-typography-h3 { font-size: 1.7rem !important; }
+    .mud-typography-h4 { font-size: 1.45rem !important; }
 
     /* MudDialog: auf kleinen Screens voll ausfahren */
     .mud-dialog {
         width: 100% !important;
         max-width: 100% !important;
         margin: 0 !important;
-        border-radius: 16px 16px 0 0 !important;
+        border-radius: 20px 20px 0 0 !important;
+    }
+
+    /* Dialog-Inhalt großzügiger */
+    .mud-dialog-content {
+        padding: 20px !important;
     }
 
     /* Snackbar: oben anzeigen auf Handy (nicht über Bottom-Nav) */
@@ -162,28 +186,36 @@ h1:focus { outline: none; }
 }
 
 /* ── Elegante Typografie-Verfeinerungen ───────────────────────── */
-/* Überschriften in eleganter Serif-Optik für ein hochwertiges Erscheinungsbild */
+/* Klare, moderne Überschriften mit kräftigem Gewicht für gute Lesbarkeit */
 h1, h2, h3, h4,
 .mud-typography-h1, .mud-typography-h2, .mud-typography-h3, .mud-typography-h4 {
-    font-family: 'Cormorant Garamond', Georgia, serif;
-    letter-spacing: 0.3px;
+    font-family: 'Plus Jakarta Sans', 'Segoe UI', sans-serif;
+    letter-spacing: -0.3px;
 }
 
 /* Etwas mehr Kontrast und Gewicht für bessere Lesbarkeit */
 .mud-typography-h5, .mud-typography-h6 {
-    font-weight: 600;
-    letter-spacing: 0.2px;
+    font-weight: 700;
+    letter-spacing: -0.2px;
+}
+
+/* Dekorative Serif-Schrift nur noch für besondere Akzente (z.B. Brautpaar-Name) */
+.wedplan-couple {
+    font-family: 'Cormorant Garamond', Georgia, serif !important;
+    letter-spacing: 0.5px;
 }
 
 /* Karten weicher und mit dezentem Schatten für moderne Tiefe */
 .mud-card {
-    border-radius: 18px !important;
-    box-shadow: 0 6px 24px rgba(46, 42, 40, 0.08) !important;
+    border-radius: 20px !important;
+    box-shadow: 0 4px 20px rgba(46, 42, 40, 0.06) !important;
+    border: 1px solid rgba(46, 42, 40, 0.04);
     transition: box-shadow 0.25s ease, transform 0.25s ease;
 }
 
 .mud-card:hover {
-    box-shadow: 0 10px 32px rgba(46, 42, 40, 0.12) !important;
+    box-shadow: 0 12px 34px rgba(46, 42, 40, 0.12) !important;
+    transform: translateY(-2px);
 }
 
 /* ── Titelbild-Upload (Einstellungen) ─────────────────────────── */
@@ -216,21 +248,23 @@ h1, h2, h3, h4,
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 12px;
+    gap: 16px;
     flex-wrap: wrap;
-    margin-bottom: 20px;
+    margin-bottom: 28px;
 }
 
 .page-header__title {
-    font-size: 2rem;
-    line-height: 1.2;
-    font-weight: 600;
+    font-size: 2.1rem;
+    line-height: 1.15;
+    font-weight: 800;
+    letter-spacing: -0.5px;
 }
 
 .page-header__subtitle {
     color: var(--mud-palette-text-secondary);
-    font-size: 0.95rem;
-    margin-top: 2px;
+    font-size: 1rem;
+    line-height: 1.5;
+    margin-top: 6px;
 }
 
 /* Aktions-Button im Seitenkopf: klar und groß genug für Touch. */
@@ -238,16 +272,21 @@ h1, h2, h3, h4,
     min-height: 48px;
     font-size: 1rem;
     font-weight: 600;
-    border-radius: 12px;
-    padding-inline: 20px;
+    border-radius: 14px;
+    padding-inline: 22px;
     white-space: nowrap;
+    box-shadow: 0 4px 14px rgba(201, 162, 39, 0.28);
 }
 
 /* ── Mobile-Anpassungen ───────────────────────────────────────── */
 @media (max-width: 600px) {
-    /* Titel etwas kleiner, damit lange Namen nicht umbrechen/abschneiden. */
+    /* Titel klar lesbar, aber platzsparend. */
     .page-header__title {
-        font-size: 1.6rem;
+        font-size: 1.7rem;
+    }
+
+    .page-header__subtitle {
+        font-size: 0.95rem;
     }
 
     /* Auf schmalen Geräten den Aktions-Button über die volle Breite ziehen,
@@ -255,12 +294,13 @@ h1, h2, h3, h4,
     .page-header {
         flex-direction: column;
         align-items: stretch;
-        gap: 14px;
+        gap: 16px;
+        margin-bottom: 22px;
     }
 
     .page-header__action.mud-button-root {
         width: 100%;
-        min-height: 52px;
+        min-height: 54px;
         font-size: 1.05rem;
     }
 
@@ -270,6 +310,7 @@ h1, h2, h3, h4,
         width: 100%;
         flex-direction: column;
         align-items: stretch;
+        gap: 12px;
     }
 }
 

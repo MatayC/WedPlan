@@ -59,22 +59,28 @@ public static class WeddingTheme
         // Sanft abgerundete Ecken für ein elegantes, weiches Erscheinungsbild.
         LayoutProperties = new LayoutProperties
         {
-            DefaultBorderRadius = "12px"
+            DefaultBorderRadius = "16px"
         },
         Typography = new Typography
         {
-            // Standard-Text in einer gut lesbaren Sans-Serif-Font.
+            // Standard-Text in einer klaren, modernen Sans-Serif-Font.
             Default = new DefaultTypography
             {
-                FontFamily = new[] { "Poppins", "Helvetica", "Arial", "sans-serif" }
+                FontFamily = new[] { "Plus Jakarta Sans", "Segoe UI", "Helvetica", "Arial", "sans-serif" },
+                FontSize = "0.95rem",
+                LineHeight = "1.6",
+                LetterSpacing = "normal"
             },
-            // Überschriften in einer eleganten Serif-Font.
-            H1 = new H1Typography { FontFamily = new[] { "Cormorant Garamond", "Georgia", "serif" }, FontWeight = "600" },
-            H2 = new H2Typography { FontFamily = new[] { "Cormorant Garamond", "Georgia", "serif" }, FontWeight = "600" },
-            H3 = new H3Typography { FontFamily = new[] { "Cormorant Garamond", "Georgia", "serif" }, FontWeight = "600" },
-            H4 = new H4Typography { FontFamily = new[] { "Cormorant Garamond", "Georgia", "serif" }, FontWeight = "600" },
-            H5 = new H5Typography { FontFamily = new[] { "Cormorant Garamond", "Georgia", "serif" }, FontWeight = "600" },
-            H6 = new H6Typography { FontFamily = new[] { "Cormorant Garamond", "Georgia", "serif" }, FontWeight = "600" }
+            // Überschriften ebenfalls klar und deutlich (Sans-Serif), mit kräftigem Gewicht.
+            H1 = new H1Typography { FontFamily = new[] { "Plus Jakarta Sans", "Segoe UI", "sans-serif" }, FontWeight = "800", LineHeight = "1.2", LetterSpacing = "-0.5px" },
+            H2 = new H2Typography { FontFamily = new[] { "Plus Jakarta Sans", "Segoe UI", "sans-serif" }, FontWeight = "800", LineHeight = "1.2", LetterSpacing = "-0.5px" },
+            H3 = new H3Typography { FontFamily = new[] { "Plus Jakarta Sans", "Segoe UI", "sans-serif" }, FontWeight = "700", LineHeight = "1.25", LetterSpacing = "-0.3px" },
+            H4 = new H4Typography { FontFamily = new[] { "Plus Jakarta Sans", "Segoe UI", "sans-serif" }, FontWeight = "700", LineHeight = "1.3" },
+            H5 = new H5Typography { FontFamily = new[] { "Plus Jakarta Sans", "Segoe UI", "sans-serif" }, FontWeight = "700", LineHeight = "1.35" },
+            H6 = new H6Typography { FontFamily = new[] { "Plus Jakarta Sans", "Segoe UI", "sans-serif" }, FontWeight = "600", LineHeight = "1.4" },
+            Subtitle1 = new Subtitle1Typography { FontFamily = new[] { "Plus Jakarta Sans", "Segoe UI", "sans-serif" }, FontWeight = "500", LineHeight = "1.5" },
+            Subtitle2 = new Subtitle2Typography { FontFamily = new[] { "Plus Jakarta Sans", "Segoe UI", "sans-serif" }, FontWeight = "500", LineHeight = "1.5" },
+            Button = new ButtonTypography { FontFamily = new[] { "Plus Jakarta Sans", "Segoe UI", "sans-serif" }, FontWeight = "600", LetterSpacing = "0.2px", TextTransform = "none" }
         }
     };
 }
