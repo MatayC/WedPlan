@@ -18,13 +18,45 @@ public class SupabaseClientProvider
 
     public SupabaseClientProvider(IConfiguration configuration, SupabaseSessionPersistence persistence)
     {
-        _url = configuration["Supabase:Url"]
+        var url = configuration["Supabase:Url"]
             ?? Environment.GetEnvironmentVariable("SUPABASE_URL")
             ?? throw new InvalidOperationException("Supabase:Url ist nicht konfiguriert (User Secrets/appsettings/Umgebungsvariable SUPABASE_URL).");
-        _key = configuration["Supabase:Key"]
+        var key = configuration["Supabase:Key"]
             ?? Environment.GetEnvironmentVariable("SUPABASE_KEY")
             ?? throw new InvalidOperationException("Supabase:Key ist nicht konfiguriert (User Secrets/appsettings/Umgebungsvariable SUPABASE_KEY).");
+
+        _url = NormalizeUrl(url);
+        _key = key.Trim();
         _persistence = persistence;
+    }
+
+    /// <summary>
+    /// Bereinigt die Supabase-URL: entfernt Leerzeichen/Zeilenumbrüche, ergänzt bei
+    /// Bedarf das https-Schema und entfernt einen abschließenden Schrägstrich.
+    /// So werden typische Konfigurationsfehler (Invalid URI) abgefangen.
+    /// </summary>
+    private static string NormalizeUrl(string raw)
+    {
+        var url = raw.Trim().Trim('"');
+        if (string.IsNullOrWhiteSpace(url))
+        {
+            throw new InvalidOperationException("Supabase:Url ist leer. Bitte in Render unter Environment 'SUPABASE_URL' setzen (Format: https://xxxxx.supabase.co).");
+        }
+
+        if (!url.StartsWith("http://", StringComparison.OrdinalIgnoreCase)
+            && !url.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+        {
+            url = "https://" + url;
+        }
+
+        url = url.TrimEnd('/');
+
+        if (!Uri.TryCreate(url, UriKind.Absolute, out _))
+        {
+            throw new InvalidOperationException($"Supabase:Url '{raw}' ist keine gültige URL. Erwartet wird z.B. https://xxxxx.supabase.co.");
+        }
+
+        return url;
     }
 
     /// <summary>
