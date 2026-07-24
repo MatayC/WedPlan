@@ -458,14 +458,22 @@ else
     // Lädt alle Live-Daten aus den Services und bereitet die Statistiken auf.
     private async Task LoadDashboardAsync()
     {
-        _settings = await SettingsService.GetAsync();
+        // Alle unabhängigen Datenquellen parallel laden → deutlich weniger Wartezeit.
+        var settingsTask = SettingsService.GetAsync();
+        var guestsTask = GuestService.GetAllAsync();
+        var budgetTask = BudgetService.GetAllAsync();
+        var tasksTask = TaskService.GetAllAsync();
+        var scheduleTask = ScheduleService.GetAllAsync();
+        await Task.WhenAll(settingsTask, guestsTask, budgetTask, tasksTask, scheduleTask);
+
+        _settings = await settingsTask;
         if (_settings.WeddingDate is not null)
         {
             _daysUntilWedding = (_settings.WeddingDate.Value.Date - DateTime.Today).Days;
         }
 
         // ---- Gäste ----
-        var guests = await GuestService.GetAllAsync();
+        var guests = await guestsTask;
         _guestCount = guests.Count;
         _guestsAccepted = guests.Count(g => g.Rsvp == RsvpStatus.Zugesagt);
         _guestsDeclined = guests.Count(g => g.Rsvp == RsvpStatus.Abgesagt);
@@ -479,7 +487,7 @@ else
         }
 
         // ---- Budget ----
-        var budgetItems = await BudgetService.GetAllAsync();
+        var budgetItems = await budgetTask;
         // Geplant: Summe der geschätzten Kosten (Fallback auf tatsächliche Kosten, falls keine Schätzung).
         _budgetPlanned = budgetItems.Sum(b => b.EstimatedCost > 0 ? b.EstimatedCost : b.ActualCost);
         _budgetSpent = budgetItems.Sum(b => b.PaidAmount);
@@ -501,7 +509,7 @@ else
         }
 
         // ---- Aufgaben ----
-        var tasks = await TaskService.GetAllAsync();
+        var tasks = await tasksTask;
         _taskCount = tasks.Count;
         _tasksDone = tasks.Count(t => t.Status == WedPlan.Models.TaskStatus.Erledigt);
         _tasksOpen = _taskCount - _tasksDone;
@@ -516,7 +524,7 @@ else
             .ToList();
 
         // ---- Zeitplan ----
-        var schedule = await ScheduleService.GetAllAsync();
+        var schedule = await scheduleTask;
         _nextScheduleItem = schedule
             .Where(s => s.StartTime >= DateTime.Now)
             .OrderBy(s => s.StartTime)

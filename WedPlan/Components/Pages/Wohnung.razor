@@ -294,12 +294,18 @@ else
     {
         if (firstRender)
         {
-            await Permissions.EnsureLoadedAsync();
-            _canEdit = Permissions.CanEdit(WeddingPages.Apartment);
-            var settings = await SettingsService.GetAsync();
-            _currency = settings.Currency ?? "EUR";
+            // Unabhängige Ladevorgänge parallel ausführen → weniger Wartezeit.
+            var permTask = Permissions.EnsureLoadedAsync();
+            var settingsTask = SettingsService.GetAsync();
+            var itemsTask = ApartmentService.GetAllAsync();
+            await Task.WhenAll(permTask, settingsTask, itemsTask);
 
-            await ReloadAsync();
+            _canEdit = Permissions.CanEdit(WeddingPages.Apartment);
+            _currency = (await settingsTask).Currency ?? "EUR";
+
+            _allItems = await itemsTask;
+            RecalculateStats();
+            ApplyFilters();
             _loading = false;
             StateHasChanged();
         }
@@ -307,7 +313,7 @@ else
 
     private async Task ReloadAsync()
     {
-        _allItems = await ApartmentService.GetAllAsync();
+        _allItems = await ApartmentService.GetAllAsync(forceRefresh: true);
         RecalculateStats();
         ApplyFilters();
     }

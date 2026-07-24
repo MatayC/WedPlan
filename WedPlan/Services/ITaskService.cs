@@ -8,7 +8,10 @@ namespace WedPlan.Services;
 public interface ITaskService
 {
     /// <summary>Liefert alle Aufgaben.</summary>
-    Task<List<TaskItem>> GetAllAsync();
+    Task<List<TaskItem>> GetAllAsync(bool forceRefresh = false);
+
+    /// <summary>Sind bereits Daten für die aktive Hochzeit im Cache?</summary>
+    bool HasCache { get; }
 
     /// <summary>Liefert eine Aufgabe anhand ihrer Id oder null.</summary>
     Task<TaskItem?> GetByIdAsync(Guid id);

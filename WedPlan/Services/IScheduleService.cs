@@ -8,7 +8,10 @@ namespace WedPlan.Services;
 public interface IScheduleService
 {
     /// <summary>Liefert alle Programmpunkte (nach Startzeit sortiert).</summary>
-    Task<List<ScheduleItem>> GetAllAsync();
+    Task<List<ScheduleItem>> GetAllAsync(bool forceRefresh = false);
+
+    /// <summary>Sind bereits Daten für die aktive Hochzeit im Cache?</summary>
+    bool HasCache { get; }
 
     /// <summary>Liefert einen Programmpunkt anhand seiner Id oder null.</summary>
     Task<ScheduleItem?> GetByIdAsync(Guid id);

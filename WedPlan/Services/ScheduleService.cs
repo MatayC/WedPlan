@@ -12,6 +12,9 @@ public class ScheduleService : IScheduleService
     private readonly SupabaseClientProvider _provider;
     private readonly WeddingContext _context;
 
+    private List<ScheduleItem>? _cache;
+    private Guid? _cacheFor;
+
     public ScheduleService(SupabaseClientProvider provider, WeddingContext context)
     {
         _provider = provider;
@@ -21,11 +24,21 @@ public class ScheduleService : IScheduleService
     private Guid WeddingId => _context.WeddingId
         ?? throw new InvalidOperationException("Keine aktive Hochzeit ausgewählt.");
 
-    public async Task<List<ScheduleItem>> GetAllAsync()
+    /// <summary>Sind bereits Daten für die aktive Hochzeit im Cache?</summary>
+    public bool HasCache => _cache is not null && _cacheFor == _context.WeddingId;
+
+    private void InvalidateCache() => _cache = null;
+
+    public async Task<List<ScheduleItem>> GetAllAsync(bool forceRefresh = false)
     {
         if (_context.WeddingId is null)
         {
             return new List<ScheduleItem>();
+        }
+
+        if (!forceRefresh && HasCache)
+        {
+            return _cache!;
         }
 
         var client = await _provider.GetClientAsync();
@@ -35,7 +48,9 @@ public class ScheduleService : IScheduleService
             .Get();
 
         // Programmpunkte chronologisch sortiert zurückgeben.
-        return result.Models.Select(r => r.ToModel()).OrderBy(s => s.StartTime).ToList();
+        _cache = result.Models.Select(r => r.ToModel()).OrderBy(s => s.StartTime).ToList();
+        _cacheFor = _context.WeddingId;
+        return _cache;
     }
 
     public async Task<ScheduleItem?> GetByIdAsync(Guid id)
@@ -53,12 +68,14 @@ public class ScheduleService : IScheduleService
     {
         var client = await _provider.GetClientAsync();
         await client.From<ScheduleItemRow>().Insert(item.ToRow(WeddingId));
+        InvalidateCache();
     }
 
     public async Task UpdateAsync(ScheduleItem item)
     {
         var client = await _provider.GetClientAsync();
         await client.From<ScheduleItemRow>().Update(item.ToRow(WeddingId));
+        InvalidateCache();
     }
 
     public async Task DeleteAsync(Guid id)
@@ -68,5 +85,6 @@ public class ScheduleService : IScheduleService
             .From<ScheduleItemRow>()
             .Where(s => s.Id == id)
             .Delete();
+        InvalidateCache();
     }
 }

@@ -8,7 +8,10 @@ namespace WedPlan.Services;
 public interface IBudgetService
 {
     /// <summary>Liefert alle Budget-Posten.</summary>
-    Task<List<BudgetItem>> GetAllAsync();
+    Task<List<BudgetItem>> GetAllAsync(bool forceRefresh = false);
+
+    /// <summary>Sind bereits Daten für die aktive Hochzeit im Cache?</summary>
+    bool HasCache { get; }
 
     /// <summary>Liefert einen Budget-Posten anhand seiner Id oder null.</summary>
     Task<BudgetItem?> GetByIdAsync(Guid id);

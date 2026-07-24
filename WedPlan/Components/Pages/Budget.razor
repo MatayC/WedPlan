@@ -506,9 +506,14 @@ else
     {
         if (firstRender)
         {
-            await Permissions.EnsureLoadedAsync();
+            // Unabhängige Ladevorgänge parallel ausführen → weniger Wartezeit.
+            var permTask = Permissions.EnsureLoadedAsync();
+            var settingsTask = SettingsService.GetAsync();
+            var itemsTask = BudgetService.GetAllAsync();
+            await Task.WhenAll(permTask, settingsTask, itemsTask);
+
             _canEdit = Permissions.CanEdit(WeddingPages.Budget);
-            var settings = await SettingsService.GetAsync();
+            var settings = await settingsTask;
             _settings = settings;
             _currency = settings.Currency ?? "EUR";
             _totalBudget = settings.TotalBudget;
@@ -518,7 +523,9 @@ else
             _monthly2 = settings.MonthlySavingPartner2;
             RecalculateSavings();
 
-            await ReloadAsync();
+            _allItems = await itemsTask;
+            RecalculateStats();
+            ApplyFilters();
             _loading = false;
             StateHasChanged();
         }
@@ -526,7 +533,7 @@ else
 
     private async Task ReloadAsync()
     {
-        _allItems = await BudgetService.GetAllAsync();
+        _allItems = await BudgetService.GetAllAsync(forceRefresh: true);
         RecalculateStats();
         ApplyFilters();
     }

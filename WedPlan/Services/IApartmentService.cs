@@ -8,7 +8,10 @@ namespace WedPlan.Services;
 public interface IApartmentService
 {
     /// <summary>Liefert alle Wohnungs-Posten.</summary>
-    Task<List<ApartmentItem>> GetAllAsync();
+    Task<List<ApartmentItem>> GetAllAsync(bool forceRefresh = false);
+
+    /// <summary>Sind bereits Daten für die aktive Hochzeit im Cache?</summary>
+    bool HasCache { get; }
 
     /// <summary>Liefert einen Wohnungs-Posten anhand seiner Id oder null.</summary>
     Task<ApartmentItem?> GetByIdAsync(Guid id);

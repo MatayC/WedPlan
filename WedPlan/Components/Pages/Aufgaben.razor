@@ -269,13 +269,20 @@ else
     {
         if (firstRender)
         {
-            await Permissions.EnsureLoadedAsync();
+            // Unabhängige Ladevorgänge parallel ausführen → weniger Wartezeit.
+            var permTask = Permissions.EnsureLoadedAsync();
+            var settingsTask = SettingsService.GetAsync();
+            var itemsTask = TaskService.GetAllAsync();
+            await Task.WhenAll(permTask, settingsTask, itemsTask);
+
             _canEdit = Permissions.CanEdit(WeddingPages.Tasks);
-            var settings = await SettingsService.GetAsync();
+            var settings = await settingsTask;
             _partner1 = string.IsNullOrWhiteSpace(settings.Partner1Name) ? "Partner 1" : settings.Partner1Name;
             _partner2 = string.IsNullOrWhiteSpace(settings.Partner2Name) ? "Partner 2" : settings.Partner2Name;
 
-            await ReloadAsync();
+            _allItems = await itemsTask;
+            RecalculateStats();
+            ApplyFilters();
             _loading = false;
             StateHasChanged();
         }
@@ -283,7 +290,7 @@ else
 
     private async Task ReloadAsync()
     {
-        _allItems = await TaskService.GetAllAsync();
+        _allItems = await TaskService.GetAllAsync(forceRefresh: true);
         RecalculateStats();
         ApplyFilters();
     }

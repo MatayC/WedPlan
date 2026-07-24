@@ -272,9 +272,15 @@ else
     {
         if (firstRender)
         {
-            await Permissions.EnsureLoadedAsync();
+            // Unabhängige Ladevorgänge parallel ausführen → weniger Wartezeit.
+            var permTask = Permissions.EnsureLoadedAsync();
+            var guestsTask = GuestService.GetAllAsync();
+            await Task.WhenAll(permTask, guestsTask);
+
             _canEdit = Permissions.CanEdit(WeddingPages.Guests);
-            await ReloadAsync();
+            _allGuests = await guestsTask;
+            RecalculateStats();
+            ApplyFilters();
             _loading = false;
             StateHasChanged();
         }
@@ -283,7 +289,7 @@ else
     // Lädt die Gäste aus dem Service neu und aktualisiert Statistik + Ansicht.
     private async Task ReloadAsync()
     {
-        _allGuests = await GuestService.GetAllAsync();
+        _allGuests = await GuestService.GetAllAsync(forceRefresh: true);
         RecalculateStats();
         ApplyFilters();
     }

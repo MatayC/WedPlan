@@ -8,7 +8,10 @@ namespace WedPlan.Services;
 public interface ISeatingService
 {
     /// <summary>Liefert alle Tische.</summary>
-    Task<List<SeatingTable>> GetAllAsync();
+    Task<List<SeatingTable>> GetAllAsync(bool forceRefresh = false);
+
+    /// <summary>Sind bereits Daten für die aktive Hochzeit im Cache?</summary>
+    bool HasCache { get; }
 
     /// <summary>Liefert einen Tisch anhand seiner Id oder null.</summary>
     Task<SeatingTable?> GetByIdAsync(Guid id);

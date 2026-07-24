@@ -12,6 +12,9 @@ public class SeatingService : ISeatingService
     private readonly SupabaseClientProvider _provider;
     private readonly WeddingContext _context;
 
+    private List<SeatingTable>? _cache;
+    private Guid? _cacheFor;
+
     public SeatingService(SupabaseClientProvider provider, WeddingContext context)
     {
         _provider = provider;
@@ -21,11 +24,21 @@ public class SeatingService : ISeatingService
     private Guid WeddingId => _context.WeddingId
         ?? throw new InvalidOperationException("Keine aktive Hochzeit ausgewählt.");
 
-    public async Task<List<SeatingTable>> GetAllAsync()
+    /// <summary>Sind bereits Daten für die aktive Hochzeit im Cache?</summary>
+    public bool HasCache => _cache is not null && _cacheFor == _context.WeddingId;
+
+    private void InvalidateCache() => _cache = null;
+
+    public async Task<List<SeatingTable>> GetAllAsync(bool forceRefresh = false)
     {
         if (_context.WeddingId is null)
         {
             return new List<SeatingTable>();
+        }
+
+        if (!forceRefresh && HasCache)
+        {
+            return _cache!;
         }
 
         var client = await _provider.GetClientAsync();
@@ -34,7 +47,9 @@ public class SeatingService : ISeatingService
             .Where(t => t.WeddingId == _context.WeddingId.Value)
             .Get();
 
-        return result.Models.Select(r => r.ToModel()).ToList();
+        _cache = result.Models.Select(r => r.ToModel()).ToList();
+        _cacheFor = _context.WeddingId;
+        return _cache;
     }
 
     public async Task<SeatingTable?> GetByIdAsync(Guid id)
@@ -52,12 +67,14 @@ public class SeatingService : ISeatingService
     {
         var client = await _provider.GetClientAsync();
         await client.From<SeatingTableRow>().Insert(table.ToRow(WeddingId));
+        InvalidateCache();
     }
 
     public async Task UpdateAsync(SeatingTable table)
     {
         var client = await _provider.GetClientAsync();
         await client.From<SeatingTableRow>().Update(table.ToRow(WeddingId));
+        InvalidateCache();
     }
 
     public async Task DeleteAsync(Guid id)
@@ -67,5 +84,6 @@ public class SeatingService : ISeatingService
             .From<SeatingTableRow>()
             .Where(t => t.Id == id)
             .Delete();
+        InvalidateCache();
     }
 }

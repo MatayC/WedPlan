@@ -44,6 +44,9 @@ public class PermissionService
     /// <summary>Darf der aktuelle Benutzer das aktive Projekt löschen?</summary>
     public bool CanDeleteProject => _isAdmin || _canDeleteProject;
 
+    /// <summary>Sind die Rechte für die aktive Hochzeit bereits geladen?</summary>
+    public bool IsLoaded => _loadedWeddingId is not null && _loadedWeddingId == _context.WeddingId;
+
     /// <summary>Darf der aktuelle Benutzer die angegebene Seite bearbeiten?</summary>
     public bool CanEdit(string page)
     {

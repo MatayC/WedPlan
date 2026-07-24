@@ -13,6 +13,9 @@ public class GuestService : IGuestService
     private readonly SupabaseClientProvider _provider;
     private readonly WeddingContext _context;
 
+    private List<Guest>? _cache;
+    private Guid? _cacheFor;
+
     public GuestService(SupabaseClientProvider provider, WeddingContext context)
     {
         _provider = provider;
@@ -22,11 +25,21 @@ public class GuestService : IGuestService
     private Guid WeddingId => _context.WeddingId
         ?? throw new InvalidOperationException("Keine aktive Hochzeit ausgewählt.");
 
-    public async Task<List<Guest>> GetAllAsync()
+    /// <summary>Sind bereits Daten für die aktive Hochzeit im Cache?</summary>
+    public bool HasCache => _cache is not null && _cacheFor == _context.WeddingId;
+
+    private void InvalidateCache() => _cache = null;
+
+    public async Task<List<Guest>> GetAllAsync(bool forceRefresh = false)
     {
         if (_context.WeddingId is null)
         {
             return new List<Guest>();
+        }
+
+        if (!forceRefresh && HasCache)
+        {
+            return _cache!;
         }
 
         var client = await _provider.GetClientAsync();
@@ -35,7 +48,9 @@ public class GuestService : IGuestService
             .Where(g => g.WeddingId == _context.WeddingId.Value)
             .Get();
 
-        return result.Models.Select(r => r.ToModel()).ToList();
+        _cache = result.Models.Select(r => r.ToModel()).ToList();
+        _cacheFor = _context.WeddingId;
+        return _cache;
     }
 
     public async Task<Guest?> GetByIdAsync(Guid id)
@@ -53,12 +68,14 @@ public class GuestService : IGuestService
     {
         var client = await _provider.GetClientAsync();
         await client.From<GuestRow>().Insert(guest.ToRow(WeddingId));
+        InvalidateCache();
     }
 
     public async Task UpdateAsync(Guest guest)
     {
         var client = await _provider.GetClientAsync();
         await client.From<GuestRow>().Update(guest.ToRow(WeddingId));
+        InvalidateCache();
     }
 
     public async Task DeleteAsync(Guid id)
@@ -68,5 +85,6 @@ public class GuestService : IGuestService
             .From<GuestRow>()
             .Where(g => g.Id == id)
             .Delete();
+        InvalidateCache();
     }
 }

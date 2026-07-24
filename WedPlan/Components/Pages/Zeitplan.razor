@@ -296,11 +296,19 @@ else
     {
         if (firstRender)
         {
-            await Permissions.EnsureLoadedAsync();
+            // Unabhängige Ladevorgänge parallel ausführen → weniger Wartezeit.
+            var permTask = Permissions.EnsureLoadedAsync();
+            var settingsTask = SettingsService.GetAsync();
+            var itemsTask = ScheduleService.GetAllAsync();
+            await Task.WhenAll(permTask, settingsTask, itemsTask);
+
             _canEdit = Permissions.CanEdit(WeddingPages.Schedule);
-            var settings = await SettingsService.GetAsync();
-            _weddingDate = settings.WeddingDate;
-            await ReloadAsync();
+            _weddingDate = (await settingsTask).WeddingDate;
+
+            var all = await itemsTask; // bereits nach StartTime sortiert
+            _weddingDayItems = all.Where(s => !s.IsMilestone).OrderBy(s => s.StartTime).ToList();
+            _milestoneItems  = all.Where(s => s.IsMilestone).OrderBy(s => s.StartTime).ToList();
+            _nextItem = _weddingDayItems.FirstOrDefault(s => s.StartTime >= DateTime.Now);
             _loading = false;
             StateHasChanged();
         }
@@ -308,7 +316,7 @@ else
 
     private async Task ReloadAsync()
     {
-        var all = await ScheduleService.GetAllAsync(); // bereits nach StartTime sortiert
+        var all = await ScheduleService.GetAllAsync(forceRefresh: true); // bereits nach StartTime sortiert
 
         // Aufteilen in Hochzeitstag-Ablauf und Planungs-Meilensteine.
         _weddingDayItems = all.Where(s => !s.IsMilestone).OrderBy(s => s.StartTime).ToList();

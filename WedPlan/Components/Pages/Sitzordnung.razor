@@ -317,17 +317,24 @@ else
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (!firstRender) return;
-        await Permissions.EnsureLoadedAsync();
+        // Unabhängige Ladevorgänge parallel ausführen → weniger Wartezeit.
+        var permTask = Permissions.EnsureLoadedAsync();
+        var tablesTask = SeatingService.GetAllAsync();
+        var guestsTask = GuestService.GetAllAsync();
+        await Task.WhenAll(permTask, tablesTask, guestsTask);
+
         _canEdit = Permissions.CanEdit(WeddingPages.Seating);
-        await LoadDataAsync();
+        _tables    = await tablesTask;
+        _allGuests = await guestsTask;
+        await ReconcileAsync();
         _loaded = true;
         StateHasChanged();
     }
 
     private async Task LoadDataAsync()
     {
-        _tables    = await SeatingService.GetAllAsync();
-        _allGuests = await GuestService.GetAllAsync();
+        _tables    = await SeatingService.GetAllAsync(forceRefresh: true);
+        _allGuests = await GuestService.GetAllAsync(forceRefresh: true);
         await ReconcileAsync();
     }
 
