@@ -12,7 +12,7 @@
         var(--wedplan-cover);
     background-size: cover;
     background-position: center;
-    min-height: 320px;
+    min-height: 240px;
     display: flex;
     align-items: center;
 }

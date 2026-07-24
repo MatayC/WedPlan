@@ -12,22 +12,20 @@
 
 @* ═══ Kopfzeile ═══ *@
 <div class="seating-header">
-    <div>
-        <MudText Typo="Typo.h4" Class="seating-title">
-            <MudIcon Icon="@Icons.Material.Filled.TableRestaurant" Class="me-2" />
-            Sitzordnung
-        </MudText>
-        <MudText Typo="Typo.body2" Class="mud-text-secondary">
-            Verwalte Tische und weise deinen Gästen Plätze zu.
-        </MudText>
-    </div>
+    <MudText Typo="Typo.h3" Class="page-header__title">
+        <MudIcon Icon="@Icons.Material.Filled.TableRestaurant" Class="me-2" />
+        Sitzordnung
+    </MudText>
+    <MudText Typo="Typo.body1" Class="mud-text-secondary seating-subtitle">
+        Verwalte Tische und weise deinen Gästen Plätze zu.
+    </MudText>
     @if (_canEdit)
     {
         <MudButton StartIcon="@Icons.Material.Filled.Add"
                    Variant="Variant.Filled"
                    Color="Color.Primary"
                    OnClick="OpenAddTableDialog"
-                   Class="add-table-btn">
+                   Class="page-header__action add-table-btn">
             Tisch anlegen
         </MudButton>
     }

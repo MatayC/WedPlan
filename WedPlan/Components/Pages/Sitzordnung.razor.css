@@ -5,20 +5,21 @@
 /* ── Kopfzeile ─────────────────────────────────────────── */
 .seating-header {
     display: flex;
-    justify-content: space-between;
+    flex-direction: column;
+    justify-content: center;
     align-items: center;
-    flex-wrap: wrap;
-    gap: 12px;
+    text-align: center;
+    gap: 8px;
     margin-bottom: 24px;
 }
 
-.seating-title {
-    font-family: 'Cormorant Garamond', serif;
-    font-weight: 600;
+.seating-subtitle {
+    max-width: 520px;
 }
 
 .add-table-btn {
     white-space: nowrap;
+    margin-top: 4px;
 }
 
 /* ── Statistik-Karten ──────────────────────────────────── */

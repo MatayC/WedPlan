@@ -7,6 +7,16 @@
     background-color: var(--mud-palette-background-grey);
 }
 
+/* Kompaktere Zeilen: weniger vertikaler Abstand, damit mehr auf einen Blick sichtbar ist */
+.task-row .pa-1 {
+    padding-top: 2px !important;
+    padding-bottom: 2px !important;
+}
+
+.task-row .mt-1 {
+    margin-top: 1px !important;
+}
+
 /* Erledigte Zeile: leicht ausgegraut */
 .task-done {
     opacity: 0.6;
@@ -22,7 +32,7 @@
 /* Beschreibungs-Text auf eine Zeile beschränken (klappbar durch den ExpansionPanel) */
 .task-description {
     display: -webkit-box;
-    -webkit-line-clamp: 2;
+    -webkit-line-clamp: 1;
     -webkit-box-orient: vertical;
     overflow: hidden;
 }

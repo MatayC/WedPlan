@@ -267,6 +267,14 @@ h1, h2, h3, h4,
     margin-top: 6px;
 }
 
+/* Zentrierte Variante des Seitenkopfs (z.B. Zeitplan). */
+.page-header--center {
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+}
+
 /* Aktions-Button im Seitenkopf: klar und groß genug für Touch. */
 .page-header__action.mud-button-root {
     min-height: 48px;

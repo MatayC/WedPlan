@@ -21,13 +21,13 @@
 }
 else
 {
-    <MudGrid Spacing="4">
+    <MudGrid Spacing="3">
 
         @* ---------- Willkommens-Banner mit Countdown ---------- *@
         <MudItem xs="12">
             <MudCard Elevation="3" Class="@_bannerClass"
                      Style="@(_hasCover ? $"--wedplan-cover: url('{_settings.CoverImageUrl}');" : "")">
-                <MudCardContent Class="py-8">
+                <MudCardContent Class="py-5">
                     <MudText Typo="Typo.overline" Align="Align.Center" Class="d-block">Wir heiraten</MudText>
 
                     @if (!string.IsNullOrWhiteSpace(_settings.Partner1Name) || !string.IsNullOrWhiteSpace(_settings.Partner2Name))
@@ -55,7 +55,7 @@ else
                         </MudText>
 
                         <div class="d-flex justify-center mt-4">
-                            <MudPaper Elevation="0" Class="wedplan-countdown px-8 py-4 rounded-xl">
+                            <MudPaper Elevation="0" Class="wedplan-countdown px-6 py-3 rounded-xl">
                                 @if (_daysUntilWedding > 0)
                                 {
                                     <MudText Typo="Typo.h1" Align="Align.Center" Color="Color.Primary" Class="wedplan-countdown-number">@_daysUntilWedding</MudText>
@@ -105,7 +105,7 @@ else
         @* ---------- Statistik-Karten ---------- *@
 
         @* Gäste *@
-        <MudItem xs="12" sm="6" md="3">
+        <MudItem xs="6" sm="6" md="3">
             <MudCard Elevation="2" Class="rounded-lg h-100" @onclick="@(() => Navigation.NavigateTo("/gaeste"))" Style="cursor:pointer">
                 <MudCardContent>
                     <div class="d-flex align-center mb-2">
@@ -140,7 +140,7 @@ else
         </MudItem>
 
         @* Budget *@
-        <MudItem xs="12" sm="6" md="3">
+        <MudItem xs="6" sm="6" md="3">
             <MudCard Elevation="2" Class="rounded-lg h-100" @onclick="@(() => Navigation.NavigateTo("/budget"))" Style="cursor:pointer">
                 <MudCardContent>
                     <div class="d-flex align-center mb-2">
@@ -162,7 +162,7 @@ else
         </MudItem>
 
         @* Aufgaben *@
-        <MudItem xs="12" sm="6" md="3">
+        <MudItem xs="6" sm="6" md="3">
             <MudCard Elevation="2" Class="rounded-lg h-100" @onclick="@(() => Navigation.NavigateTo("/aufgaben"))" Style="cursor:pointer">
                 <MudCardContent>
                     <div class="d-flex align-center mb-2">
@@ -181,7 +181,7 @@ else
         </MudItem>
 
         @* Nächster Termin *@
-        <MudItem xs="12" sm="6" md="3">
+        <MudItem xs="6" sm="6" md="3">
             <MudCard Elevation="2" Class="rounded-lg h-100" @onclick="@(() => Navigation.NavigateTo("/zeitplan"))" Style="cursor:pointer">
                 <MudCardContent>
                     <div class="d-flex align-center mb-2">
