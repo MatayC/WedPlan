@@ -102,21 +102,24 @@
     {
         if (!firstRender) return;
 
-        // Nicht angemeldet? -> Login.
-        if (!await AuthService.IsLoggedInAsync())
-        {
-            Navigation.NavigateTo("/login", replace: true);
-            return;
-        }
-
-        // Query-Parameter auswerten: code (geteilter Link) und new (weiteres Projekt anlegen).
+        // Query-Parameter vorab auswerten, damit ein Einladungs-Code auch dann
+        // erhalten bleibt, wenn der Nutzer sich erst anmelden muss.
         var uri = Navigation.ToAbsoluteUri(Navigation.Uri);
         var query = Microsoft.AspNetCore.WebUtilities.QueryHelpers.ParseQuery(uri.Query);
         var isNew = query.TryGetValue("new", out var newFlag) && newFlag == "1";
+        var hasCode = query.TryGetValue("code", out var code) && !string.IsNullOrWhiteSpace(code);
+
+        // Nicht angemeldet? -> Login. Einladungs-Code mitnehmen, damit der Beitritt
+        // nach der Anmeldung automatisch fortgesetzt werden kann.
+        if (!await AuthService.IsLoggedInAsync())
+        {
+            var target = hasCode ? $"/login?code={Uri.EscapeDataString(code.ToString())}" : "/login";
+            Navigation.NavigateTo(target, replace: true);
+            return;
+        }
 
         // Schon in einer Hochzeit? -> Start. Außer der Nutzer will ausdrücklich ein
         // weiteres Projekt anlegen/beitreten (new=1) oder öffnet einen Einladungslink (code=...).
-        var hasCode = query.TryGetValue("code", out var code) && !string.IsNullOrWhiteSpace(code);
         if (!isNew && !hasCode && await WeddingService.LoadActiveWeddingAsync())
         {
             Navigation.NavigateTo("/", replace: true);

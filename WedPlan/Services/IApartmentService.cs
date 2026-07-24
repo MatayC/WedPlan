@@ -13,6 +13,9 @@ public interface IApartmentService
     /// <summary>Sind bereits Daten für die aktive Hochzeit im Cache?</summary>
     bool HasCache { get; }
 
+    /// <summary>Verwirft den Cache, sodass die Daten neu aus der Cloud geladen werden.</summary>
+    void InvalidateCache();
+
     /// <summary>Liefert einen Wohnungs-Posten anhand seiner Id oder null.</summary>
     Task<ApartmentItem?> GetByIdAsync(Guid id);
 

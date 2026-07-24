@@ -13,6 +13,9 @@ public interface ISeatingService
     /// <summary>Sind bereits Daten für die aktive Hochzeit im Cache?</summary>
     bool HasCache { get; }
 
+    /// <summary>Verwirft den Cache, sodass die Daten neu aus der Cloud geladen werden.</summary>
+    void InvalidateCache();
+
     /// <summary>Liefert einen Tisch anhand seiner Id oder null.</summary>
     Task<SeatingTable?> GetByIdAsync(Guid id);
 

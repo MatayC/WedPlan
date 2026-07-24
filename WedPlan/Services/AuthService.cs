@@ -1,5 +1,6 @@
 using Supabase.Gotrue;
 using Supabase.Gotrue.Exceptions;
+using WedPlan.Models.Supabase;
 
 namespace WedPlan.Services;
 
@@ -57,6 +58,7 @@ public class AuthService : IAuthService
             if (session?.User is not null)
             {
                 await _provider.PersistCurrentSessionAsync();
+                await EnsureProfileAsync(session.User);
                 OnAuthStateChanged?.Invoke();
                 return new AuthResult(true);
             }
@@ -82,6 +84,7 @@ public class AuthService : IAuthService
             if (session?.User is not null)
             {
                 await _provider.PersistCurrentSessionAsync();
+                await EnsureProfileAsync(session.User);
                 OnAuthStateChanged?.Invoke();
                 return new AuthResult(true);
             }
@@ -143,6 +146,57 @@ public class AuthService : IAuthService
         await client.Auth.SignOut();
         await _provider.ClearPersistedSessionAsync();
         OnAuthStateChanged?.Invoke();
+    }
+
+    /// <summary>
+    /// Stellt sicher, dass für den angemeldeten Benutzer ein Profil mit Nutzername
+    /// existiert. Der Datenbank-Trigger legt das Profil normalerweise beim SignUp an;
+    /// dieser Upsert ist ein Sicherheitsnetz, damit niemand als „Unbekannt" erscheint
+    /// (z.B. wenn der Trigger fehlt oder der Nutzername leer geblieben ist).
+    /// </summary>
+    private async Task EnsureProfileAsync(User user)
+    {
+        try
+        {
+            if (!Guid.TryParse(user.Id, out var userId))
+            {
+                return;
+            }
+
+            // Nutzername bevorzugt aus den user_metadata, sonst aus dem E-Mail-Präfix.
+            var username = user.UserMetadata is not null
+                && user.UserMetadata.TryGetValue("username", out var raw)
+                && raw is not null
+                && !string.IsNullOrWhiteSpace(raw.ToString())
+                    ? raw.ToString()!
+                    : (user.Email?.Split('@').FirstOrDefault() ?? "Gast");
+
+            var client = await _provider.GetClientAsync();
+
+            // Existiert bereits ein gültiges Profil? Dann nichts überschreiben.
+            var existing = await client
+                .From<ProfileRow>()
+                .Where(p => p.Id == userId)
+                .Get();
+
+            var current = existing.Models.FirstOrDefault();
+            if (current is not null && !string.IsNullOrWhiteSpace(current.Username)
+                && current.Username != "Unbekannt")
+            {
+                return;
+            }
+
+            await client.From<ProfileRow>().Upsert(new ProfileRow
+            {
+                Id = userId,
+                Username = username,
+                Email = user.Email
+            });
+        }
+        catch
+        {
+            // Profil-Absicherung ist optional; schlägt sie fehl, bleibt der Login gültig.
+        }
     }
 
     private static string TranslateError(string message)

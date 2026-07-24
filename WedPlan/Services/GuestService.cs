@@ -28,7 +28,7 @@ public class GuestService : IGuestService
     /// <summary>Sind bereits Daten für die aktive Hochzeit im Cache?</summary>
     public bool HasCache => _cache is not null && _cacheFor == _context.WeddingId;
 
-    private void InvalidateCache() => _cache = null;
+    public void InvalidateCache() => _cache = null;
 
     public async Task<List<Guest>> GetAllAsync(bool forceRefresh = false)
     {

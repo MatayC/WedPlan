@@ -142,6 +142,7 @@ else
         _isDarkMode = settings.IsDarkMode;
         _coverUrl = settings.CoverImageUrl;
         Realtime.OnSettingsChanged += OnRealtimeSettingsChanged;
+        Realtime.OnDataChanged += OnRealtimeDataChanged;
         await Realtime.StartAsync();
 
         // Erst jetzt ist alles bestätigt -> Layout-Inhalt freigeben.
@@ -218,9 +219,29 @@ else
         await InvokeAsync(StateHasChanged);
     }
 
+    // Reagiert auf Live-Datenänderungen anderer Mitglieder (Gäste, Budget, Aufgaben …).
+    // Der betroffene Service-Cache wird verworfen und im Hintergrund neu geladen,
+    // damit die offene Seite beim nächsten Rendern sofort aktuelle Daten zeigt.
+    private async void OnRealtimeDataChanged(string table)
+    {
+        switch (table)
+        {
+            case "guests":         GuestService.InvalidateCache();     await GuestService.GetAllAsync(forceRefresh: true);     break;
+            case "budget_items":   BudgetService.InvalidateCache();    await BudgetService.GetAllAsync(forceRefresh: true);    break;
+            case "apartment_items":ApartmentService.InvalidateCache(); await ApartmentService.GetAllAsync(forceRefresh: true); break;
+            case "tasks":          TaskService.InvalidateCache();      await TaskService.GetAllAsync(forceRefresh: true);      break;
+            case "schedule_items": ScheduleService.InvalidateCache();  await ScheduleService.GetAllAsync(forceRefresh: true);  break;
+            case "seating_tables": SeatingService.InvalidateCache();   await SeatingService.GetAllAsync(forceRefresh: true);   break;
+            default: return;
+        }
+
+        await InvokeAsync(StateHasChanged);
+    }
+
     public void Dispose()
     {
         SettingsService.OnChange -= OnSettingsChanged;
         Realtime.OnSettingsChanged -= OnRealtimeSettingsChanged;
+        Realtime.OnDataChanged -= OnRealtimeDataChanged;
     }
 }

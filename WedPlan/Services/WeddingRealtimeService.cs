@@ -3,17 +3,30 @@ using WedPlan.Models.Supabase;
 namespace WedPlan.Services;
 
 /// <summary>
-/// Abonniert per Supabase Realtime Änderungen an der Einstellungs-Zeile der
-/// aktiven Hochzeit (z.B. neues Titelbild) und meldet sie an die UI, damit
-/// alle Mitglieder Änderungen sofort ohne manuelles Neuladen sehen.
+/// Abonniert per Supabase Realtime Änderungen an allen Tabellen der aktiven
+/// Hochzeit (Einstellungen, Gäste, Budget, Aufgaben, Zeitplan, Sitzordnung,
+/// Wohnung) und meldet sie an die UI, damit alle Mitglieder Änderungen sofort
+/// ohne manuelles Neuladen sehen.
 /// </summary>
 public class WeddingRealtimeService : IAsyncDisposable
 {
     private readonly SupabaseClientProvider _provider;
     private readonly WeddingContext _context;
 
-    private Supabase.Realtime.RealtimeChannel? _channel;
+    private readonly List<Supabase.Realtime.RealtimeChannel> _channels = new();
     private Guid? _subscribedWedding;
+
+    // Tabellen, deren Änderungen live überwacht werden. Der Schlüssel ist zugleich
+    // der Bezeichner, der über OnDataChanged an die UI gemeldet wird.
+    private static readonly string[] DataTables =
+    {
+        "guests",
+        "budget_items",
+        "apartment_items",
+        "tasks",
+        "schedule_items",
+        "seating_tables"
+    };
 
     public WeddingRealtimeService(SupabaseClientProvider provider, WeddingContext context)
     {
@@ -23,6 +36,12 @@ public class WeddingRealtimeService : IAsyncDisposable
 
     /// <summary>Wird ausgelöst, wenn sich die Einstellungen der aktiven Hochzeit geändert haben.</summary>
     public event Action? OnSettingsChanged;
+
+    /// <summary>
+    /// Wird ausgelöst, wenn sich Daten einer überwachten Tabelle der aktiven
+    /// Hochzeit geändert haben. Parameter ist der Tabellenname (z.B. "guests").
+    /// </summary>
+    public event Action<string>? OnDataChanged;
 
     /// <summary>
     /// Startet (oder erneuert) das Abonnement für die aktuell aktive Hochzeit.
@@ -36,7 +55,7 @@ public class WeddingRealtimeService : IAsyncDisposable
             return;
         }
 
-        if (_subscribedWedding == weddingId && _channel is not null)
+        if (_subscribedWedding == weddingId && _channels.Count > 0)
         {
             return;
         }
@@ -48,22 +67,34 @@ public class WeddingRealtimeService : IAsyncDisposable
             var client = await _provider.GetClientAsync();
             await client.Realtime.ConnectAsync();
 
-            var channel = client.Realtime.Channel("realtime", "public", "wedding_settings");
-
-            channel.AddPostgresChangeHandler(
+            // Einstellungen (Titelbild, Dark Mode, Sparplan …)
+            var settingsChannel = client.Realtime.Channel("realtime", "public", "wedding_settings");
+            settingsChannel.AddPostgresChangeHandler(
                 Supabase.Realtime.PostgresChanges.PostgresChangesOptions.ListenType.All,
                 (_, change) =>
                 {
-                    // Nur auf Änderungen der aktiven Hochzeit reagieren.
                     var model = change.Model<WeddingSettingsRow>();
                     if (model is null || model.WeddingId == _context.WeddingId)
                     {
                         OnSettingsChanged?.Invoke();
                     }
                 });
+            await settingsChannel.Subscribe();
+            _channels.Add(settingsChannel);
 
-            await channel.Subscribe();
-            _channel = channel;
+            // Alle übrigen Datentabellen – bei Änderung wird der Tabellenname gemeldet,
+            // damit die UI gezielt den passenden Cache invalidiert und neu lädt.
+            foreach (var table in DataTables)
+            {
+                var channel = client.Realtime.Channel("realtime", "public", table);
+                var tableName = table;
+                channel.AddPostgresChangeHandler(
+                    Supabase.Realtime.PostgresChanges.PostgresChangesOptions.ListenType.All,
+                    (_, _) => OnDataChanged?.Invoke(tableName));
+                await channel.Subscribe();
+                _channels.Add(channel);
+            }
+
             _subscribedWedding = weddingId;
         }
         catch
@@ -72,23 +103,23 @@ public class WeddingRealtimeService : IAsyncDisposable
         }
     }
 
-    /// <summary>Beendet das aktuelle Abonnement.</summary>
+    /// <summary>Beendet alle aktuellen Abonnements.</summary>
     public async Task StopAsync()
     {
-        if (_channel is not null)
+        foreach (var channel in _channels)
         {
             try
             {
-                _channel.Unsubscribe();
+                channel.Unsubscribe();
             }
             catch
             {
                 // ignorieren
             }
-
-            _channel = null;
-            _subscribedWedding = null;
         }
+
+        _channels.Clear();
+        _subscribedWedding = null;
 
         await Task.CompletedTask;
     }

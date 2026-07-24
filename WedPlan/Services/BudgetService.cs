@@ -27,7 +27,7 @@ public class BudgetService : IBudgetService
     /// <summary>Sind bereits Daten für die aktive Hochzeit im Cache?</summary>
     public bool HasCache => _cache is not null && _cacheFor == _context.WeddingId;
 
-    private void InvalidateCache() => _cache = null;
+    public void InvalidateCache() => _cache = null;
 
     public async Task<List<BudgetItem>> GetAllAsync(bool forceRefresh = false)
     {

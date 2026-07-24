@@ -102,14 +102,35 @@
     private string? _info;
     private bool _busy;
 
+    // Einladungs-Code aus einem geteilten Link (/login?code=ABC123). Nach erfolgreicher
+    // Anmeldung wird der Nutzer damit direkt zum Beitritt weitergeleitet.
+    private string? _inviteCode;
+
     protected override async Task OnInitializedAsync()
     {
-        // Bereits angemeldet? Dann direkt zur Startseite.
+        // Einladungs-Code aus der URL merken, damit er die Anmeldung „überlebt".
+        var uri = Navigation.ToAbsoluteUri(Navigation.Uri);
+        var query = Microsoft.AspNetCore.WebUtilities.QueryHelpers.ParseQuery(uri.Query);
+        if (query.TryGetValue("code", out var code) && !string.IsNullOrWhiteSpace(code))
+        {
+            _inviteCode = code.ToString();
+            // Wer einen Einladungslink öffnet, will meist ein neues Konto anlegen.
+            _activeTab = 1;
+        }
+
+        // Bereits angemeldet? Dann direkt weiter (mit Code zum Beitritt, sonst Startseite).
         if (await AuthService.IsLoggedInAsync())
         {
-            Navigation.NavigateTo("/", replace: true);
+            Navigation.NavigateTo(TargetAfterAuth(), replace: true);
         }
     }
+
+    // Zieladresse nach erfolgreicher Anmeldung: Bei vorhandenem Einladungs-Code
+    // direkt ins Onboarding zum automatischen Beitritt, sonst zur Startseite.
+    private string TargetAfterAuth()
+        => string.IsNullOrWhiteSpace(_inviteCode)
+            ? "/"
+            : $"/onboarding?code={Uri.EscapeDataString(_inviteCode)}";
 
     private async Task SubmitAsync()
     {
@@ -137,7 +158,7 @@
             }
             else if (result.Success)
             {
-                Navigation.NavigateTo("/", replace: true);
+                Navigation.NavigateTo(TargetAfterAuth(), replace: true);
             }
             else
             {

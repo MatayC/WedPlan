@@ -638,9 +638,52 @@ create policy "covers_member_delete" on storage.objects
 	);
 
 -- -----------------------------------------------------------------------------
--- 13) REALTIME: Änderungen an wedding_settings live an Clients senden.
+-- 13) REALTIME: Änderungen live an die Clients senden.
+--     Alle geteilten Tabellen werden in die Realtime-Publikation aufgenommen,
+--     damit Mitglieder Änderungen der/des Partner*in sofort sehen, ohne die
+--     Seite neu zu laden. Der DO-Block ist idempotent (Fehler beim erneuten
+--     Hinzufügen werden ignoriert).
 -- -----------------------------------------------------------------------------
-alter publication supabase_realtime add table wedding_settings;
+do $$
+declare
+	t text;
+begin
+	foreach t in array array[
+		'wedding_settings', 'guests', 'budget_items', 'apartment_items',
+		'tasks', 'schedule_items', 'seating_tables'
+	]
+	loop
+		begin
+			execute format('alter publication supabase_realtime add table %I', t);
+		exception
+			when duplicate_object then null; -- Tabelle ist bereits Teil der Publikation
+		end;
+	end loop;
+end;
+$$;
+
+-- -----------------------------------------------------------------------------
+-- 14) BACKFILL: Fehlende Profile für bereits registrierte Benutzer nachtragen,
+--     damit niemand als „Unbekannt" in der Mitgliederliste erscheint.
+-- -----------------------------------------------------------------------------
+insert into public.profiles (id, username, email)
+select
+	u.id,
+	coalesce(u.raw_user_meta_data ->> 'username', split_part(u.email, '@', 1), 'Gast'),
+	u.email
+from auth.users u
+left join public.profiles p on p.id = u.id
+where p.id is null
+on conflict (id) do nothing;
+
+-- Leere/„Unbekannt"-Nutzernamen aus früheren Versionen korrigieren.
+update public.profiles p
+set username = coalesce(
+		(select u.raw_user_meta_data ->> 'username' from auth.users u where u.id = p.id),
+		split_part((select u.email from auth.users u where u.id = p.id), '@', 1),
+		'Gast'
+	)
+where p.username is null or trim(p.username) = '' or p.username = 'Unbekannt';
 
 -- =============================================================================
 -- FERTIG. Wenn "Success. No rows returned" erscheint, hat alles geklappt.
