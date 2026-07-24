@@ -600,6 +600,79 @@ end;
 $$;
 
 -- -----------------------------------------------------------------------------
+-- 11b) FUNKTION: Ein Mitglied aus einer Hochzeit entfernen (nur Admins).
+--      Admins können andere Mitglieder rauswerfen. Der letzte Admin kann sich
+--      nicht selbst entfernen (dafür ist „Projekt verlassen"/„löschen" gedacht).
+-- -----------------------------------------------------------------------------
+create or replace function remove_wedding_member(target_wedding uuid, target_user uuid)
+returns boolean
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+	-- Nur Admins dürfen andere entfernen.
+	if not is_wedding_admin(target_wedding) then
+		return false;
+	end if;
+
+	-- Sich selbst kann man hierüber nicht entfernen (dafür: Projekt verlassen).
+	if target_user = auth.uid() then
+		return false;
+	end if;
+
+	delete from wedding_members
+	where wedding_id = target_wedding
+	  and user_id = target_user;
+
+	return found;
+end;
+$$;
+
+-- -----------------------------------------------------------------------------
+-- 11c) FUNKTION: Eine Hochzeit selbst verlassen (jedes Mitglied).
+--      Der letzte verbleibende Admin darf nicht austreten, damit das Projekt
+--      nicht führungslos wird – er soll es stattdessen löschen.
+-- -----------------------------------------------------------------------------
+create or replace function leave_wedding(target_wedding uuid)
+returns boolean
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+	is_admin boolean;
+	admin_count int;
+begin
+	-- Muss überhaupt Mitglied sein.
+	if not is_wedding_member(target_wedding) then
+		return false;
+	end if;
+
+	select (role = 'admin') into is_admin
+	from wedding_members
+	where wedding_id = target_wedding and user_id = auth.uid();
+
+	if is_admin then
+		select count(*) into admin_count
+		from wedding_members
+		where wedding_id = target_wedding and role = 'admin';
+
+		-- Letzter Admin darf nicht austreten (Projekt sonst führungslos).
+		if admin_count <= 1 then
+			return false;
+		end if;
+	end if;
+
+	delete from wedding_members
+	where wedding_id = target_wedding
+	  and user_id = auth.uid();
+
+	return found;
+end;
+$$;
+
+-- -----------------------------------------------------------------------------
 -- 12) STORAGE: Öffentlicher Bucket für Titelbilder ("wedding-covers").
 --     Bilder sind öffentlich lesbar; Schreiben/Löschen nur für angemeldete
 --     Benutzer, die Mitglied der jeweiligen Hochzeit sind (Ordnername = wedding_id).

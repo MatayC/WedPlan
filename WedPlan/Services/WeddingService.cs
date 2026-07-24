@@ -305,4 +305,66 @@ public class WeddingService : IWeddingService
             return (false, ex.Message);
         }
     }
+
+    public async Task<(bool Success, string? Error)> RemoveMemberAsync(Guid userId)
+    {
+        if (_context.WeddingId is null)
+        {
+            return (false, "Keine aktive Hochzeit.");
+        }
+
+        try
+        {
+            var client = await _provider.GetClientAsync();
+            var response = await client.Rpc("remove_wedding_member", new Dictionary<string, object>
+            {
+                ["target_wedding"] = _context.WeddingId.Value.ToString(),
+                ["target_user"] = userId.ToString()
+            });
+
+            var content = response.Content?.Trim().Trim('"');
+            if (!string.Equals(content, "true", StringComparison.OrdinalIgnoreCase))
+            {
+                return (false, "Mitglied konnte nicht entfernt werden (nur Admins, nicht sich selbst).");
+            }
+
+            return (true, null);
+        }
+        catch (Exception ex)
+        {
+            return (false, ex.Message);
+        }
+    }
+
+    public async Task<(bool Success, string? Error)> LeaveWeddingAsync(Guid weddingId)
+    {
+        try
+        {
+            var client = await _provider.GetClientAsync();
+            var response = await client.Rpc("leave_wedding", new Dictionary<string, object>
+            {
+                ["target_wedding"] = weddingId.ToString()
+            });
+
+            var content = response.Content?.Trim().Trim('"');
+            if (!string.Equals(content, "true", StringComparison.OrdinalIgnoreCase))
+            {
+                return (false, "Verlassen nicht möglich. Der letzte Admin muss das Projekt stattdessen löschen.");
+            }
+
+            // War es die aktive Hochzeit? Dann auf eine andere umschalten oder leeren.
+            if (_context.WeddingId == weddingId)
+            {
+                await _context.PersistActiveAsync(null);
+                _context.Clear();
+                await LoadActiveWeddingAsync();
+            }
+
+            return (true, null);
+        }
+        catch (Exception ex)
+        {
+            return (false, ex.Message);
+        }
+    }
 }

@@ -53,4 +53,10 @@ public interface IWeddingService
 
     /// <summary>Setzt die Rechte eines Mitglieds (nur Admins). Speichert sofort.</summary>
     Task<(bool Success, string? Error)> UpdateMemberPermissionsAsync(Guid userId, MemberPermissions permissions);
+
+    /// <summary>Entfernt ein Mitglied aus der aktiven Hochzeit (nur Admins).</summary>
+    Task<(bool Success, string? Error)> RemoveMemberAsync(Guid userId);
+
+    /// <summary>Verlässt die angegebene Hochzeit (das aktuelle Mitglied tritt aus).</summary>
+    Task<(bool Success, string? Error)> LeaveWeddingAsync(Guid weddingId);
 }

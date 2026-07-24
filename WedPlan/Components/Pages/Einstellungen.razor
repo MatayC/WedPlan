@@ -7,6 +7,7 @@
 @inject IStorageService StorageService
 @inject WeddingContext WeddingContext
 @inject PermissionService Permissions
+@inject IAuthService AuthService
 @inject NavigationManager Navigation
 @inject IDialogService DialogService
 @inject IJSRuntime JS
@@ -103,6 +104,24 @@ else
                                 @if (!string.IsNullOrEmpty(m.Email))
                                 {
                                     <MudText Typo="Typo.caption" Class="mud-text-secondary">@m.Email</MudText>
+                                }
+                            </div>
+                            <div class="d-flex align-center">
+                                @if (m.UserId == _currentUserId)
+                                {
+                                    <MudButton Size="Size.Small" Variant="Variant.Text" Color="Color.Warning"
+                                               StartIcon="@Icons.Material.Filled.Logout"
+                                               OnClick="@(() => LeaveAsync(m))">
+                                        Verlassen
+                                    </MudButton>
+                                }
+                                else if (Permissions.IsAdmin)
+                                {
+                                    <MudButton Size="Size.Small" Variant="Variant.Text" Color="Color.Error"
+                                               StartIcon="@Icons.Material.Filled.PersonRemove"
+                                               OnClick="@(() => RemoveMemberAsync(m))">
+                                        Entfernen
+                                    </MudButton>
                                 }
                             </div>
                         </div>
@@ -322,6 +341,7 @@ else
     private WeddingSettings _settings = new();
     private List<WeddingMember> _members = new();
     private List<WeddingSummary> _weddings = new();
+    private Guid? _currentUserId;
 
     private string InviteLink =>
         string.IsNullOrEmpty(WeddingContext.InviteCode)
@@ -342,6 +362,7 @@ else
         {
             await Permissions.EnsureLoadedAsync();
             _canEditSettings = Permissions.CanEdit(WeddingPages.Settings);
+            _currentUserId = await AuthService.GetCurrentUserIdAsync();
             _settings = await SettingsService.GetAsync();
             _members = await WeddingService.GetMembersAsync();
             _weddings = await WeddingService.GetMyWeddingsAsync();
@@ -495,6 +516,80 @@ else
         else
         {
             Snackbar.Add("Wechsel fehlgeschlagen.", Severity.Error);
+        }
+    }
+
+    // Admin entfernt ein anderes Mitglied aus der aktiven Hochzeit.
+    private async Task RemoveMemberAsync(WeddingMember member)
+    {
+        var options = new MessageBoxOptions
+        {
+            Title = "Mitglied entfernen",
+            Message = $"„{member.Username}\" wird aus dieser Hochzeit entfernt und verliert den Zugriff.",
+            YesText = "Entfernen",
+            CancelText = "Abbrechen"
+        };
+
+        var confirmed = await DialogService.ShowMessageBoxAsync(options);
+        if (confirmed != true)
+        {
+            return;
+        }
+
+        var (success, error) = await WeddingService.RemoveMemberAsync(member.UserId);
+        if (success)
+        {
+            Snackbar.Add($"{member.Username} wurde entfernt.", Severity.Success);
+            _members = await WeddingService.GetMembersAsync();
+            StateHasChanged();
+        }
+        else
+        {
+            Snackbar.Add(error ?? "Entfernen fehlgeschlagen.", Severity.Error);
+        }
+    }
+
+    // Das aktuelle Mitglied verlässt die Hochzeit selbst.
+    private async Task LeaveAsync(WeddingMember member)
+    {
+        if (WeddingContext.WeddingId is null)
+        {
+            return;
+        }
+
+        var weddingId = WeddingContext.WeddingId.Value;
+        var options = new MessageBoxOptions
+        {
+            Title = "Projekt verlassen",
+            Message = "Möchtest du diese Hochzeit wirklich verlassen? Du verlierst den Zugriff, bis du erneut eingeladen wirst.",
+            YesText = "Verlassen",
+            CancelText = "Abbrechen"
+        };
+
+        var confirmed = await DialogService.ShowMessageBoxAsync(options);
+        if (confirmed != true)
+        {
+            return;
+        }
+
+        var (success, error) = await WeddingService.LeaveWeddingAsync(weddingId);
+        if (success)
+        {
+            Snackbar.Add("Du hast das Projekt verlassen.", Severity.Success);
+
+            var hasAnother = await WeddingService.LoadActiveWeddingAsync();
+            if (!hasAnother || !WeddingContext.HasWedding)
+            {
+                Navigation.NavigateTo("/onboarding?new=1", forceLoad: true);
+            }
+            else
+            {
+                Navigation.NavigateTo("/", forceLoad: true);
+            }
+        }
+        else
+        {
+            Snackbar.Add(error ?? "Verlassen fehlgeschlagen.", Severity.Error);
         }
     }
 
