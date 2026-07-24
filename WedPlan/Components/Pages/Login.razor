@@ -1,0 +1,152 @@
+@page "/login"
+@layout LoginLayout
+@using WedPlan.Services
+@inject IAuthService AuthService
+@inject NavigationManager Navigation
+
+<PageTitle>Anmelden – WedPlan</PageTitle>
+
+<div class="login-wrapper">
+    <MudPaper Elevation="4" Class="login-card pa-6 rounded-xl">
+        <div class="d-flex flex-column align-center mb-4">
+            <MudIcon Icon="@Icons.Material.Filled.Favorite" Color="Color.Primary" Size="Size.Large" />
+            <MudText Typo="Typo.h4" Class="mt-2">WedPlan</MudText>
+            <MudText Typo="Typo.body2" Class="mud-text-secondary">Eure gemeinsame Hochzeitsplanung</MudText>
+        </div>
+
+        <MudTabs Elevation="0" Centered="true" Rounded="true" ApplyEffectsToContainer="true"
+                 @bind-ActivePanelIndex="_activeTab" Class="mb-4">
+            <MudTabPanel Text="Anmelden" />
+            <MudTabPanel Text="Registrieren" />
+        </MudTabs>
+
+        <MudForm @ref="_form">
+            @if (_activeTab == 1)
+            {
+                <MudTextField @bind-Value="_username"
+                              Label="Nutzername"
+                              Variant="Variant.Outlined"
+                              Required="true"
+                              RequiredError="Bitte Nutzername eingeben"
+                              Adornment="Adornment.Start"
+                              AdornmentIcon="@Icons.Material.Filled.Person"
+                              Class="mb-3" />
+            }
+
+            <MudTextField @bind-Value="_email"
+                          Label="E-Mail"
+                          InputType="InputType.Email"
+                          Variant="Variant.Outlined"
+                          Required="true"
+                          RequiredError="Bitte E-Mail eingeben"
+                          Adornment="Adornment.Start"
+                          AdornmentIcon="@Icons.Material.Filled.Email"
+                          Class="mb-3" />
+
+            <MudTextField @bind-Value="_password"
+                          Label="Passwort"
+                          InputType="InputType.Password"
+                          Variant="Variant.Outlined"
+                          Required="true"
+                          RequiredError="Bitte Passwort eingeben"
+                          Adornment="Adornment.Start"
+                          AdornmentIcon="@Icons.Material.Filled.Lock"
+                          HelperText="@(_activeTab == 1 ? "Mindestens 6 Zeichen" : null)"
+                          Class="mb-2" />
+        </MudForm>
+
+        @if (_activeTab == 0)
+        {
+            <div class="d-flex justify-end mb-2">
+                <MudLink Href="/passwort-vergessen" Typo="Typo.body2">Passwort vergessen?</MudLink>
+            </div>
+        }
+
+        @if (!string.IsNullOrEmpty(_error))
+        {
+            <MudAlert Severity="Severity.Error" Class="mb-3" Dense="true">@_error</MudAlert>
+        }
+
+        @if (!string.IsNullOrEmpty(_info))
+        {
+            <MudAlert Severity="Severity.Success" Class="mb-3" Dense="true">@_info</MudAlert>
+        }
+
+        <MudButton Variant="Variant.Filled"
+                   Color="Color.Primary"
+                   FullWidth="true"
+                   Size="Size.Large"
+                   Disabled="_busy"
+                   OnClick="SubmitAsync"
+                   Class="mt-2 rounded-lg">
+            @if (_busy)
+            {
+                <MudProgressCircular Class="mr-2" Size="Size.Small" Indeterminate="true" />
+                <span>Bitte warten…</span>
+            }
+            else
+            {
+                <span>@(_activeTab == 0 ? "Anmelden" : "Konto erstellen")</span>
+            }
+        </MudButton>
+    </MudPaper>
+</div>
+
+@code {
+    private MudForm _form = default!;
+    private int _activeTab;
+    private string _username = string.Empty;
+    private string _email = string.Empty;
+    private string _password = string.Empty;
+    private string? _error;
+    private string? _info;
+    private bool _busy;
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Bereits angemeldet? Dann direkt zur Startseite.
+        if (await AuthService.IsLoggedInAsync())
+        {
+            Navigation.NavigateTo("/", replace: true);
+        }
+    }
+
+    private async Task SubmitAsync()
+    {
+        _error = null;
+        _info = null;
+
+        await _form.Validate();
+        if (!_form.IsValid)
+        {
+            return;
+        }
+
+        _busy = true;
+        try
+        {
+            var result = _activeTab == 0
+                ? await AuthService.LoginAsync(_email, _password)
+                : await AuthService.RegisterAsync(_username, _email, _password);
+
+            if (result.NeedsEmailConfirmation)
+            {
+                _info = "Fast geschafft! Wir haben dir eine E-Mail geschickt. " +
+                        "Bitte bestätige den Link im Postfach und melde dich dann an.";
+                _activeTab = 0;
+            }
+            else if (result.Success)
+            {
+                Navigation.NavigateTo("/", replace: true);
+            }
+            else
+            {
+                _error = result.ErrorMessage;
+            }
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+}

@@ -1,0 +1,152 @@
+@using WedPlan.Models
+
+<MudDialog>
+    <TitleContent>
+        <MudText Typo="Typo.h6">
+            <MudIcon Icon="@Icons.Material.Filled.Event" Class="mr-2" />
+            @(_isEdit ? "Termin bearbeiten" : "Termin hinzufügen")
+        </MudText>
+    </TitleContent>
+    <DialogContent>
+        <MudForm @ref="_form">
+            <MudGrid Spacing="2">
+                <MudItem xs="12">
+                    <MudTextField @bind-Value="_model.Title" Label="Titel" Variant="Variant.Outlined"
+                                  Required="true" RequiredError="Titel ist erforderlich." />
+                </MudItem>
+                <MudItem xs="12">
+                    <MudTextField @bind-Value="_model.Description" Label="Beschreibung (optional)"
+                                  Variant="Variant.Outlined" Lines="2" />
+                </MudItem>
+
+                <MudItem xs="12" sm="6">
+                    <MudSelect @bind-Value="_model.Category" Label="Kategorie" Variant="Variant.Outlined">
+                        <MudSelectItem Value="ScheduleCategory.Vorbereitung">Vorbereitung</MudSelectItem>
+                        <MudSelectItem Value="ScheduleCategory.Trauung">Trauung</MudSelectItem>
+                        <MudSelectItem Value="ScheduleCategory.Empfang">Empfang / Sektempfang</MudSelectItem>
+                        <MudSelectItem Value="ScheduleCategory.Dinner">Dinner / Essen</MudSelectItem>
+                        <MudSelectItem Value="ScheduleCategory.Party">Party / Feier</MudSelectItem>
+                        <MudSelectItem Value="ScheduleCategory.Sonstiges">Sonstiges</MudSelectItem>
+                    </MudSelect>
+                </MudItem>
+                <MudItem xs="12" sm="6">
+                    @* Meilenstein = Planungsschritt vor der Hochzeit, sonst = Hochzeitstag-Ablauf. *@
+                    <MudSelect @bind-Value="_model.IsMilestone" Label="Ansicht" Variant="Variant.Outlined">
+                        <MudSelectItem Value="false">Ablauf: Großer Tag</MudSelectItem>
+                        <MudSelectItem Value="true">Planungs-Meilenstein</MudSelectItem>
+                    </MudSelect>
+                </MudItem>
+
+                <MudItem xs="12" sm="6">
+                    @* Datum und Uhrzeit für den Startzeit-Picker kombiniert. *@
+                    <MudDatePicker @bind-Date="_startDate" Label="Datum (Beginn)" Variant="Variant.Outlined" />
+                </MudItem>
+                <MudItem xs="12" sm="6">
+                    <MudTimePicker @bind-Time="_startTime" Label="Uhrzeit (Beginn)"
+                                   Variant="Variant.Outlined" AmPm="false" />
+                </MudItem>
+
+                <MudItem xs="12" sm="6">
+                    <MudDatePicker @bind-Date="_endDate" Label="Datum Ende (optional)"
+                                   Variant="Variant.Outlined" Clearable="true" />
+                </MudItem>
+                <MudItem xs="12" sm="6">
+                    <MudTimePicker @bind-Time="_endTime" Label="Uhrzeit Ende (optional)"
+                                   Variant="Variant.Outlined" AmPm="false" Clearable="true" />
+                </MudItem>
+
+                <MudItem xs="12" sm="6">
+                    <MudTextField @bind-Value="_model.Location" Label="Ort / Location (optional)"
+                                  Variant="Variant.Outlined"
+                                  Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Place" />
+                </MudItem>
+                <MudItem xs="12" sm="6">
+                    <MudTextField @bind-Value="_model.ResponsiblePerson" Label="Ansprechpartner (optional)"
+                                  Variant="Variant.Outlined"
+                                  Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Person" />
+                </MudItem>
+            </MudGrid>
+        </MudForm>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel">Abbrechen</MudButton>
+        <MudButton Color="Color.Primary" Variant="Variant.Filled" OnClick="SubmitAsync">
+            @(_isEdit ? "Speichern" : "Hinzufügen")
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter]
+    private IMudDialogInstance MudDialog { get; set; } = default!;
+
+    /// <summary>Der zu bearbeitende Eintrag. Null = neuer Eintrag.</summary>
+    [Parameter]
+    public ScheduleItem? Item { get; set; }
+
+    /// <summary>
+    /// Vorauswahl des Ansichtsmodus, damit beim Hinzufügen aus dem jeweiligen Tab
+    /// die richtige Ansicht vorbelegt ist.
+    /// </summary>
+    [Parameter]
+    public bool DefaultIsMilestone { get; set; }
+
+    private MudForm _form = default!;
+    private ScheduleItem _model = new();
+    private bool _isEdit;
+
+    // Datum und Uhrzeit werden getrennt gepflegt und beim Speichern kombiniert.
+    private DateTime? _startDate;
+    private TimeSpan? _startTime;
+    private DateTime? _endDate;
+    private TimeSpan? _endTime;
+
+    protected override void OnInitialized()
+    {
+        _isEdit = Item is not null;
+        _model = _isEdit
+            ? new ScheduleItem
+            {
+                Id = Item!.Id,
+                Title = Item.Title,
+                Description = Item.Description,
+                StartTime = Item.StartTime,
+                EndTime = Item.EndTime,
+                Location = Item.Location,
+                ResponsiblePerson = Item.ResponsiblePerson,
+                Category = Item.Category,
+                IsMilestone = Item.IsMilestone
+            }
+            : new ScheduleItem { IsMilestone = DefaultIsMilestone };
+
+        // Datum und Zeit aus dem DateTime-Wert aufsplitten.
+        _startDate = _model.StartTime;
+        _startTime = _model.StartTime.TimeOfDay;
+        _endDate = _model.EndTime;
+        _endTime = _model.EndTime?.TimeOfDay;
+    }
+
+    private async Task SubmitAsync()
+    {
+        await _form.Validate();
+        if (!_form.IsValid) return;
+
+        // Datum + Zeit wieder zusammenführen.
+        var date = _startDate ?? DateTime.Today;
+        _model.StartTime = date.Date + (_startTime ?? TimeSpan.Zero);
+
+        if (_endDate.HasValue)
+        {
+            var endDate = _endDate.Value.Date;
+            _model.EndTime = endDate + (_endTime ?? TimeSpan.Zero);
+        }
+        else
+        {
+            _model.EndTime = null;
+        }
+
+        MudDialog.Close(DialogResult.Ok(_model));
+    }
+
+    private void Cancel() => MudDialog.Cancel();
+}

@@ -1,0 +1,432 @@
+@page "/aufgaben"
+@using System.Globalization
+@using WedPlan.Models
+@using WedPlan.Services
+@using WedPlan.Data
+@using WedPlan.Components.Dialogs
+@inject ITaskService TaskService
+@inject ISettingsService SettingsService
+@inject IDialogService DialogService
+@inject PermissionService Permissions
+@inject ISnackbar Snackbar
+
+<PageTitle>To-Do / Checkliste – WedPlan</PageTitle>
+
+<div class="d-flex align-center justify-space-between flex-wrap mb-4">
+    <MudText Typo="Typo.h3">Checkliste</MudText>
+    <div class="d-flex gap-2 flex-wrap">
+        @if (_canEdit)
+        {
+            @if (_allItems.Count == 0 && !_loading)
+            {
+                @* Beim ersten Start: Standard-Checkliste anbieten. *@
+                <MudButton Variant="Variant.Outlined" Color="Color.Secondary"
+                           StartIcon="@Icons.Material.Filled.PlaylistAdd"
+                           OnClick="LoadTemplateAsync">Standard-Checkliste laden</MudButton>
+            }
+            <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                       StartIcon="@Icons.Material.Filled.Add"
+                       OnClick="@(() => OpenDialogAsync(null))">Aufgabe hinzufügen</MudButton>
+        }
+    </div>
+</div>
+
+@if (_loading)
+{
+    <MudProgressLinear Color="Color.Primary" Indeterminate="true" Class="my-8" />
+}
+else
+{
+    @* ---------- Fortschrittsbereich ---------- *@
+    <MudCard Elevation="2" Class="rounded-lg mb-4">
+        <MudCardContent>
+            <MudGrid Spacing="3" Class="align-center">
+                <MudItem xs="12" sm="6" md="3">
+                    <MudText Typo="Typo.caption" Class="mud-text-secondary d-block">Gesamt</MudText>
+                    <MudText Typo="Typo.h5">@_total Aufgaben</MudText>
+                </MudItem>
+                <MudItem xs="6" sm="3" md="2">
+                    <MudText Typo="Typo.caption" Class="mud-text-secondary d-block">Erledigt</MudText>
+                    <MudText Typo="Typo.h5" Color="Color.Success">@_done</MudText>
+                </MudItem>
+                <MudItem xs="6" sm="3" md="2">
+                    <MudText Typo="Typo.caption" Class="mud-text-secondary d-block">Offen</MudText>
+                    <MudText Typo="Typo.h5" Color="Color.Warning">@_open</MudText>
+                </MudItem>
+                <MudItem xs="12" sm="12" md="5">
+                    <div class="d-flex justify-space-between mb-1">
+                        <MudText Typo="Typo.body2">Fortschritt</MudText>
+                        <MudText Typo="Typo.body2" Color="Color.Primary"><b>@_donePercent&#37;</b></MudText>
+                    </div>
+                    <MudProgressLinear Color="Color.Primary" Value="@_donePercent"
+                                       Rounded="true" Size="Size.Large" />
+                </MudItem>
+            </MudGrid>
+        </MudCardContent>
+    </MudCard>
+
+    @* ---------- Filter- und Steuerleiste ---------- *@
+    <MudCard Elevation="1" Class="rounded-lg mb-4">
+        <MudCardContent>
+            <MudGrid Spacing="2" Class="align-center">
+                <MudItem xs="12" sm="5">
+                    <MudTextField Value="_searchTerm" ValueChanged="@((string v) => OnSearchChanged(v))"
+                                  Immediate="true" Placeholder="Aufgaben suchen …"
+                                  Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search"
+                                  Variant="Variant.Outlined" Margin="Margin.Dense" Clearable="true" />
+                </MudItem>
+                <MudItem xs="12" sm="7" Class="d-flex align-center justify-sm-end flex-wrap gap-2">
+                    @* Prioritäts-Filter-Chips *@
+                    <MudChipSet T="TaskPriority?" SelectedValue="_priorityFilter"
+                                SelectedValueChanged="OnPriorityFilterChanged"
+                                SelectionMode="SelectionMode.SingleSelection" Variant="Variant.Filled">
+                        <MudChip T="TaskPriority?" Value="@((TaskPriority?)null)" Default="true">Alle</MudChip>
+                        <MudChip T="TaskPriority?" Value="@((TaskPriority?)TaskPriority.Hoch)" Color="Color.Error">Hoch</MudChip>
+                        <MudChip T="TaskPriority?" Value="@((TaskPriority?)TaskPriority.Mittel)" Color="Color.Warning">Mittel</MudChip>
+                        <MudChip T="TaskPriority?" Value="@((TaskPriority?)TaskPriority.Niedrig)" Color="Color.Default">Niedrig</MudChip>
+                    </MudChipSet>
+                </MudItem>
+                <MudItem xs="12" Class="d-flex align-center gap-4 flex-wrap">
+                    <MudSwitch @bind-Value="_showOnlyOpen" Color="Color.Primary"
+                               Label="Nur offene anzeigen" />
+                    <div Class="d-flex align-center">
+                        <MudText Typo="Typo.body2" Class="mr-3 mud-text-secondary">Gruppieren:</MudText>
+                        <MudToggleGroup T="GroupMode" Value="_groupMode" ValueChanged="OnGroupModeChanged"
+                                        Color="Color.Primary" Size="Size.Small" CheckMark="true">
+                            <MudToggleItem Value="GroupMode.Phase" Text="Phase" />
+                            <MudToggleItem Value="GroupMode.Priority" Text="Priorität" />
+                        </MudToggleGroup>
+                    </div>
+                </MudItem>
+            </MudGrid>
+        </MudCardContent>
+    </MudCard>
+
+    @* ---------- Aufgabenliste ---------- *@
+    @if (_filteredItems.Count == 0)
+    {
+        <MudCard Elevation="2" Class="rounded-lg">
+            <MudCardContent Class="d-flex flex-column align-center py-8">
+                <MudIcon Icon="@Icons.Material.Filled.TaskAlt" Color="Color.Secondary" Size="Size.Large" />
+                <MudText Typo="Typo.h6" Class="mt-3">
+                    @(_allItems.Count == 0 ? "Noch keine Aufgaben vorhanden." : "Alle Aufgaben erledigt! 🎉")
+                </MudText>
+                @if (_allItems.Count == 0)
+                {
+                    <MudText Typo="Typo.body2" Class="mud-text-secondary mt-1">
+                        Füge eine Aufgabe hinzu oder lade die Standard-Checkliste.
+                    </MudText>
+                    <MudButton Class="mt-4" Variant="Variant.Outlined" Color="Color.Primary"
+                               StartIcon="@Icons.Material.Filled.PlaylistAdd"
+                               OnClick="LoadTemplateAsync">Standard-Checkliste laden</MudButton>
+                }
+            </MudCardContent>
+        </MudCard>
+    }
+    else
+    {
+        <MudExpansionPanels MultiExpansion="true" Elevation="2" Class="rounded-lg">
+            @foreach (var group in _groupedItems)
+            {
+                var doneInGroup = group.Count(t => t.IsDone);
+                var totalInGroup = group.Count();
+                var pctInGroup = totalInGroup > 0 ? (int)Math.Round((double)doneInGroup / totalInGroup * 100) : 0;
+
+                <MudExpansionPanel Expanded="true">
+                    <TitleContent>
+                        <div class="d-flex align-center justify-space-between" style="width:100%">
+                            <div class="d-flex align-center">
+                                <MudIcon Icon="@PhaseIcon(group.Key)" Color="Color.Primary" Class="mr-2" />
+                                <MudText Typo="Typo.subtitle1"><b>@group.Key</b></MudText>
+                                <MudChip T="string" Size="Size.Small" Class="ml-2" Variant="Variant.Text">
+                                    @doneInGroup / @totalInGroup
+                                </MudChip>
+                            </div>
+                            <div class="d-flex align-center" style="min-width:80px">
+                                <MudProgressLinear Color="Color.Success" Value="@pctInGroup"
+                                                   Rounded="true" Size="Size.Small" Class="flex-grow-1 mr-2" />
+                                <MudText Typo="Typo.caption" Class="mud-text-secondary">@pctInGroup&#37;</MudText>
+                            </div>
+                        </div>
+                    </TitleContent>
+                    <ChildContent>
+                        @foreach (var task in group.OrderBy(t => t.IsDone).ThenByDescending(t => t.Priority))
+                        {
+                            <div class="@(task.IsDone ? "task-row task-done" : "task-row")">
+                                <div class="d-flex align-center pa-1">
+                                    @* Checkbox zum Abhaken – sofort gespeichert. *@
+                                    <MudCheckBox Value="task.IsDone" Disabled="@(!_canEdit)"
+                                                 ValueChanged="@((bool v) => ToggleDoneAsync(task, v))"
+                                                 Color="Color.Success" Class="mr-1 flex-shrink-0" />
+
+                                    @* Aufgaben-Inhalt *@
+                                    <div class="flex-grow-1 overflow-hidden">
+                                        <div class="d-flex align-center flex-wrap gap-1">
+                                            <MudText Typo="Typo.body1"
+                                                     Class="@(task.IsDone ? "task-title-done" : "")">
+                                                @task.Title
+                                            </MudText>
+                                            @* Prioritäts-Badge *@
+                                            @if (!task.IsDone)
+                                            {
+                                                <MudChip T="string" Size="Size.Small"
+                                                         Color="@PriorityColor(task.Priority)"
+                                                         Variant="Variant.Outlined">
+                                                    @task.Priority
+                                                </MudChip>
+                                            }
+                                            @* Überfällige Aufgaben rot markieren *@
+                                            @if (!task.IsDone && task.DueDate.HasValue && task.DueDate.Value.Date < DateTime.Today)
+                                            {
+                                                <MudChip T="string" Size="Size.Small" Color="Color.Error" Variant="Variant.Filled">
+                                                    <MudIcon Icon="@Icons.Material.Filled.Warning" Size="Size.Small" Class="mr-1" />
+                                                    Überfällig
+                                                </MudChip>
+                                            }
+                                        </div>
+                                        @* Zusatzinfos nur wenn Aufgabe nicht erledigt oder Beschreibung vorhanden *@
+                                        <div class="d-flex align-center flex-wrap gap-2 mt-1">
+                                            @if (task.DueDate.HasValue)
+                                            {
+                                                <MudText Typo="Typo.caption"
+                                                         Class="@(task.DueDate.Value.Date < DateTime.Today && !task.IsDone ? "mud-error-text" : "mud-text-secondary")">
+                                                    <MudIcon Icon="@Icons.Material.Filled.CalendarToday" Size="Size.Small" Class="mr-1" />
+                                                    @task.DueDate.Value.ToString("dd. MMM yyyy", _culture)
+                                                </MudText>
+                                            }
+                                            @if (!string.IsNullOrWhiteSpace(task.Responsible) && task.Responsible != "Beide")
+                                            {
+                                                <MudText Typo="Typo.caption" Class="mud-text-secondary">
+                                                    <MudIcon Icon="@Icons.Material.Filled.Person" Size="Size.Small" Class="mr-1" />
+                                                    @task.Responsible
+                                                </MudText>
+                                            }
+                                            @if (!string.IsNullOrWhiteSpace(task.Description))
+                                            {
+                                                <MudText Typo="Typo.caption" Class="mud-text-secondary task-description">
+                                                    @task.Description
+                                                </MudText>
+                                            }
+                                        </div>
+                                    </div>
+
+                                    @* Aktions-Buttons *@
+                                    <div class="d-flex flex-shrink-0">
+                                        @if (_canEdit)
+                                        {
+                                            <MudIconButton Icon="@Icons.Material.Filled.Edit" Size="Size.Small"
+                                                           Color="Color.Primary" aria-label="Bearbeiten"
+                                                           OnClick="@(() => OpenDialogAsync(task))" />
+                                            <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small"
+                                                           Color="Color.Error" aria-label="Löschen"
+                                                           OnClick="@(() => DeleteAsync(task))" />
+                                        }
+                                    </div>
+                                </div>
+                                @if (group.Last() != task)
+                                {
+                                    <MudDivider />
+                                }
+                            </div>
+                        }
+                    </ChildContent>
+                </MudExpansionPanel>
+            }
+        </MudExpansionPanels>
+    }
+}
+
+@code {
+    private enum GroupMode { Phase, Priority }
+
+    private readonly CultureInfo _culture = new("de-DE");
+    private bool _loading = true;
+    private bool _canEdit;
+
+    private List<TaskItem> _allItems = new();
+    private List<TaskItem> _filteredItems = new();
+    private List<IGrouping<string, TaskItem>> _groupedItems = new();
+
+    // Einstellungen (für Partnernamen im Dialog)
+    private string _partner1 = "Partner 1";
+    private string _partner2 = "Partner 2";
+
+    // Filter-Zustand
+    private string _searchTerm = string.Empty;
+    private TaskPriority? _priorityFilter;
+    private bool _showOnlyOpen;
+    private GroupMode _groupMode = GroupMode.Phase;
+
+    // Statistik
+    private int _total;
+    private int _done;
+    private int _open;
+    private int _donePercent;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await Permissions.EnsureLoadedAsync();
+            _canEdit = Permissions.CanEdit(WeddingPages.Tasks);
+            var settings = await SettingsService.GetAsync();
+            _partner1 = string.IsNullOrWhiteSpace(settings.Partner1Name) ? "Partner 1" : settings.Partner1Name;
+            _partner2 = string.IsNullOrWhiteSpace(settings.Partner2Name) ? "Partner 2" : settings.Partner2Name;
+
+            await ReloadAsync();
+            _loading = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task ReloadAsync()
+    {
+        _allItems = await TaskService.GetAllAsync();
+        RecalculateStats();
+        ApplyFilters();
+    }
+
+    private void RecalculateStats()
+    {
+        _total = _allItems.Count;
+        _done = _allItems.Count(t => t.IsDone);
+        _open = _total - _done;
+        _donePercent = _total > 0 ? (int)Math.Round((double)_done / _total * 100) : 0;
+    }
+
+    private void ApplyFilters()
+    {
+        IEnumerable<TaskItem> query = _allItems;
+
+        if (_showOnlyOpen)
+            query = query.Where(t => !t.IsDone);
+
+        if (!string.IsNullOrWhiteSpace(_searchTerm))
+            query = query.Where(t => t.Title.Contains(_searchTerm, StringComparison.OrdinalIgnoreCase)
+                                  || (t.Description ?? "").Contains(_searchTerm, StringComparison.OrdinalIgnoreCase));
+
+        if (_priorityFilter.HasValue)
+            query = query.Where(t => t.Priority == _priorityFilter.Value);
+
+        _filteredItems = query.ToList();
+
+        // Gruppierung nach Modus.
+        _groupedItems = _groupMode == GroupMode.Phase
+            ? _filteredItems
+                .GroupBy(t => PhaseLabel(t.Phase))
+                .OrderBy(g => PhaseOrder(g.First().Phase))
+                .ToList()
+            : _filteredItems
+                .GroupBy(t => t.Priority.ToString())
+                .OrderByDescending(g => (int)g.First().Priority)
+                .ToList();
+    }
+
+    private void OnSearchChanged(string value) { _searchTerm = value ?? string.Empty; ApplyFilters(); }
+    private void OnPriorityFilterChanged(TaskPriority? v) { _priorityFilter = v; ApplyFilters(); }
+    private void OnGroupModeChanged(GroupMode v) { _groupMode = v; ApplyFilters(); }
+
+    // Checkbox-Toggle: IsDone sofort speichern ohne Dialog.
+    private async Task ToggleDoneAsync(TaskItem task, bool isDone)
+    {
+        task.IsDone = isDone;
+        await TaskService.UpdateAsync(task);
+        Snackbar.Add(isDone ? $"'{task.Title}' erledigt!" : $"'{task.Title}' wieder geöffnet.", Severity.Success);
+        RecalculateStats();
+        ApplyFilters();
+    }
+
+    private async Task OpenDialogAsync(TaskItem? item)
+    {
+        var parameters = new DialogParameters<TaskDialog>
+        {
+            { x => x.Item, item },
+            { x => x.Partner1, _partner1 },
+            { x => x.Partner2, _partner2 }
+        };
+        var options = new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true, CloseButton = true };
+        var dialog = await DialogService.ShowAsync<TaskDialog>(
+            item is null ? "Aufgabe hinzufügen" : "Aufgabe bearbeiten", parameters, options);
+        var result = await dialog.Result;
+
+        if (result is not null && !result.Canceled && result.Data is TaskItem edited)
+        {
+            if (item is null)
+            {
+                await TaskService.AddAsync(edited);
+                Snackbar.Add($"'{edited.Title}' hinzugefügt.", Severity.Success);
+            }
+            else
+            {
+                await TaskService.UpdateAsync(edited);
+                Snackbar.Add($"'{edited.Title}' aktualisiert.", Severity.Success);
+            }
+            await ReloadAsync();
+        }
+    }
+
+    private async Task DeleteAsync(TaskItem task)
+    {
+        var opts = new MessageBoxOptions
+        {
+            Title = "Aufgabe löschen",
+            Message = $"'{task.Title}' wirklich löschen?",
+            YesText = "Löschen",
+            CancelText = "Abbrechen"
+        };
+        if (await DialogService.ShowMessageBoxAsync(opts) == true)
+        {
+            await TaskService.DeleteAsync(task.Id);
+            Snackbar.Add($"'{task.Title}' gelöscht.", Severity.Info);
+            await ReloadAsync();
+        }
+    }
+
+    // Standard-Checkliste laden und in den Service schreiben.
+    private async Task LoadTemplateAsync()
+    {
+        var template = TaskTemplates.GetDefaultChecklist();
+        foreach (var task in template)
+            await TaskService.AddAsync(task);
+
+        Snackbar.Add($"{template.Count} Standard-Aufgaben wurden geladen.", Severity.Success);
+        await ReloadAsync();
+    }
+
+    // ── Hilfsmethoden ────────────────────────────────────────────────────────
+
+    private static string PhaseLabel(TaskPhase phase) => phase switch
+    {
+        TaskPhase.VorherMehr12Monate => "12+ Monate vorher",
+        TaskPhase.Vorher6Monate      => "6 Monate vorher",
+        TaskPhase.Vorher3Monate      => "3 Monate vorher",
+        TaskPhase.Vorher1Monat       => "1 Monat vorher",
+        TaskPhase.WocheDavor         => "Woche davor",
+        TaskPhase.AmTag              => "Am Hochzeitstag",
+        TaskPhase.Danach             => "Danach",
+        _                            => "Sonstige"
+    };
+
+    // Sortiergewicht für die Phase (chronologisch).
+    private static int PhaseOrder(TaskPhase phase) => (int)phase;
+
+    private static string PhaseIcon(string label) => label switch
+    {
+        "12+ Monate vorher" => Icons.Material.Filled.DateRange,
+        "6 Monate vorher"   => Icons.Material.Filled.Event,
+        "3 Monate vorher"   => Icons.Material.Filled.EventAvailable,
+        "1 Monat vorher"    => Icons.Material.Filled.EventNote,
+        "Woche davor"       => Icons.Material.Filled.Today,
+        "Am Hochzeitstag"   => Icons.Material.Filled.Favorite,
+        "Danach"            => Icons.Material.Filled.CheckCircle,
+        _                   => Icons.Material.Filled.List
+    };
+
+    private static Color PriorityColor(TaskPriority p) => p switch
+    {
+        TaskPriority.Hoch   => Color.Error,
+        TaskPriority.Mittel => Color.Warning,
+        _                   => Color.Default
+    };
+}
+

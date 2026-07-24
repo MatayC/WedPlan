@@ -1,0 +1,128 @@
+@using WedPlan.Models
+
+<MudDialog>
+    <TitleContent>
+        <MudText Typo="Typo.h6">
+            <MudIcon Icon="@Icons.Material.Filled.Checklist" Class="mr-2" />
+            @(_isEdit ? "Aufgabe bearbeiten" : "Aufgabe hinzufügen")
+        </MudText>
+    </TitleContent>
+    <DialogContent>
+        <MudForm @ref="_form">
+            <MudGrid Spacing="2">
+                <MudItem xs="12">
+                    <MudTextField @bind-Value="_model.Title" Label="Titel" Variant="Variant.Outlined"
+                                  Required="true" RequiredError="Titel ist erforderlich." />
+                </MudItem>
+                <MudItem xs="12">
+                    <MudTextField @bind-Value="_model.Description" Label="Beschreibung (optional)"
+                                  Variant="Variant.Outlined" Lines="3" />
+                </MudItem>
+
+                <MudItem xs="12" sm="6">
+                    <MudSelect @bind-Value="_model.Phase" Label="Planungsphase" Variant="Variant.Outlined">
+                        <MudSelectItem Value="TaskPhase.VorherMehr12Monate">12+ Monate vorher</MudSelectItem>
+                        <MudSelectItem Value="TaskPhase.Vorher6Monate">6 Monate vorher</MudSelectItem>
+                        <MudSelectItem Value="TaskPhase.Vorher3Monate">3 Monate vorher</MudSelectItem>
+                        <MudSelectItem Value="TaskPhase.Vorher1Monat">1 Monat vorher</MudSelectItem>
+                        <MudSelectItem Value="TaskPhase.WocheDavor">Woche davor</MudSelectItem>
+                        <MudSelectItem Value="TaskPhase.AmTag">Am Tag</MudSelectItem>
+                        <MudSelectItem Value="TaskPhase.Danach">Danach</MudSelectItem>
+                    </MudSelect>
+                </MudItem>
+                <MudItem xs="12" sm="6">
+                    <MudSelect @bind-Value="_model.Priority" Label="Priorität" Variant="Variant.Outlined">
+                        <MudSelectItem Value="TaskPriority.Niedrig">Niedrig</MudSelectItem>
+                        <MudSelectItem Value="TaskPriority.Mittel">Mittel</MudSelectItem>
+                        <MudSelectItem Value="TaskPriority.Hoch">Hoch</MudSelectItem>
+                    </MudSelect>
+                </MudItem>
+
+                <MudItem xs="12" sm="6">
+                    <MudDatePicker @bind-Date="_dueDate" Label="Fälligkeitsdatum (optional)"
+                                   Variant="Variant.Outlined" Clearable="true" />
+                </MudItem>
+                <MudItem xs="12" sm="6">
+                    <MudAutocomplete T="string" @bind-Value="_model.Responsible" Label="Verantwortlich"
+                                     Variant="Variant.Outlined" SearchFunc="@SearchResponsible"
+                                     CoerceValue="true" CoerceText="false" />
+                </MudItem>
+
+                <MudItem xs="12">
+                    <MudCheckBox @bind-Value="_model.IsDone" Label="Bereits erledigt" Color="Color.Success" />
+                </MudItem>
+            </MudGrid>
+        </MudForm>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel">Abbrechen</MudButton>
+        <MudButton Color="Color.Primary" Variant="Variant.Filled" OnClick="SubmitAsync">
+            @(_isEdit ? "Speichern" : "Hinzufügen")
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter]
+    private IMudDialogInstance MudDialog { get; set; } = default!;
+
+    /// <summary>Die zu bearbeitende Aufgabe. Null = neue Aufgabe.</summary>
+    [Parameter]
+    public TaskItem? Item { get; set; }
+
+    /// <summary>Namen der Partner für die Verantwortlich-Vorschläge.</summary>
+    [Parameter]
+    public string Partner1 { get; set; } = "Partner 1";
+
+    [Parameter]
+    public string Partner2 { get; set; } = "Partner 2";
+
+    private MudForm _form = default!;
+    private TaskItem _model = new();
+    private bool _isEdit;
+    private DateTime? _dueDate;
+
+    protected override void OnInitialized()
+    {
+        _isEdit = Item is not null;
+
+        // Beim Bearbeiten mit einer Kopie arbeiten.
+        _model = _isEdit
+            ? new TaskItem
+            {
+                Id = Item!.Id,
+                Title = Item.Title,
+                Description = Item.Description,
+                Phase = Item.Phase,
+                Priority = Item.Priority,
+                DueDate = Item.DueDate,
+                Status = Item.Status,
+                Responsible = Item.Responsible,
+                Category = Item.Category
+            }
+            : new TaskItem();
+
+        _dueDate = _model.DueDate;
+    }
+
+    // Vorschläge für das Verantwortlich-Feld.
+    private Task<IEnumerable<string>> SearchResponsible(string value, CancellationToken token)
+    {
+        var options = new[] { "Beide", Partner1, Partner2, "Trauzeugin", "Trauzeuge", "Mutter Braut", "Mutter Bräutigam" };
+        IEnumerable<string> results = string.IsNullOrWhiteSpace(value)
+            ? options
+            : options.Where(o => o.Contains(value, StringComparison.OrdinalIgnoreCase));
+        return Task.FromResult(results);
+    }
+
+    private async Task SubmitAsync()
+    {
+        await _form.Validate();
+        if (!_form.IsValid) return;
+
+        _model.DueDate = _dueDate;
+        MudDialog.Close(DialogResult.Ok(_model));
+    }
+
+    private void Cancel() => MudDialog.Cancel();
+}

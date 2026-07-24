@@ -1,0 +1,35 @@
+## .NET / Visual Studio
+bin/
+obj/
+.vs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+## Build results
+[Dd]ebug/
+[Rr]elease/
+x64/
+x86/
+[Aa][Rr][Mm]/
+[Aa][Rr][Mm]64/
+build/
+bld/
+[Bb]in/
+[Oo]bj/
+[Ll]og/
+
+## Rider
+.idea/
+
+## VS Code
+.vscode/
+
+## User-specific secrets (Supabase-Keys etc. NICHT committen)
+appsettings.Development.json
+secrets.json
+
+## OS
+.DS_Store
+Thumbs.db

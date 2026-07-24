@@ -1,0 +1,28 @@
+/* Jede Aufgaben-Zeile */
+.task-row {
+    transition: background-color 0.2s ease;
+}
+
+.task-row:hover {
+    background-color: var(--mud-palette-background-grey);
+}
+
+/* Erledigte Zeile: leicht ausgegraut */
+.task-done {
+    opacity: 0.6;
+}
+
+/* Durchstreich-Animation für erledigte Aufgaben */
+.task-title-done {
+    text-decoration: line-through;
+    color: var(--mud-palette-text-secondary);
+    transition: all 0.3s ease;
+}
+
+/* Beschreibungs-Text auf eine Zeile beschränken (klappbar durch den ExpansionPanel) */
+.task-description {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}

@@ -1,0 +1,174 @@
+@using WedPlan.Models
+@using System.Text.RegularExpressions
+
+<MudDialog>
+    <TitleContent>
+        <MudText Typo="Typo.h6">
+            <MudIcon Icon="@Icons.Material.Filled.PersonAdd" Class="mr-2" />
+            @(_isEdit ? "Gast bearbeiten" : "Gast hinzufügen")
+        </MudText>
+    </TitleContent>
+    <DialogContent>
+        @* Formular mit Validierung. _form dient zur Validierungsprüfung beim Speichern. *@
+        <MudForm @ref="_form" Model="_model">
+            <MudGrid Spacing="2">
+                <MudItem xs="12" sm="6">
+                    <MudTextField @bind-Value="_model.FirstName" Label="Vorname" Variant="Variant.Outlined"
+                                  Required="true" RequiredError="Vorname ist erforderlich." />
+                </MudItem>
+                <MudItem xs="12" sm="6">
+                    <MudTextField @bind-Value="_model.LastName" Label="Nachname" Variant="Variant.Outlined"
+                                  Required="true" RequiredError="Nachname ist erforderlich." />
+                </MudItem>
+
+                <MudItem xs="12" sm="6">
+                    <MudTextField @bind-Value="_model.Email" Label="E-Mail (optional)" Variant="Variant.Outlined"
+                                  Validation="@(new Func<string?, string?>(ValidateEmail))" />
+                </MudItem>
+                <MudItem xs="12" sm="6">
+                    <MudTextField @bind-Value="_model.Phone" Label="Telefon (optional)" Variant="Variant.Outlined" />
+                </MudItem>
+
+                <MudItem xs="12" sm="6">
+                    @* Gruppe frei wählbar über Autocomplete mit Vorschlägen. *@
+                    <MudAutocomplete T="string" @bind-Value="_model.Group" Label="Gruppe" Variant="Variant.Outlined"
+                                     SearchFunc="@SearchGroups" CoerceText="false" CoerceValue="true"
+                                     HelperText="z.B. Familie Braut, Freunde – frei erweiterbar" />
+                </MudItem>
+                <MudItem xs="12" sm="6">
+                    <MudSelect @bind-Value="_model.Rsvp" Label="RSVP-Status" Variant="Variant.Outlined">
+                        <MudSelectItem Value="RsvpStatus.Ausstehend">Ausstehend</MudSelectItem>
+                        <MudSelectItem Value="RsvpStatus.Zugesagt">Zugesagt</MudSelectItem>
+                        <MudSelectItem Value="RsvpStatus.Abgesagt">Abgesagt</MudSelectItem>
+                    </MudSelect>
+                </MudItem>
+
+                <MudItem xs="12" sm="6">
+                    <MudNumericField @bind-Value="_model.PlusOnes" Label="Begleitpersonen / Kinder"
+                                     Variant="Variant.Outlined" Min="0" Max="20" />
+                </MudItem>
+                <MudItem xs="12" sm="6">
+                    <MudSelect @bind-Value="_model.Menu" Label="Menü-Wunsch" Variant="Variant.Outlined">
+                        <MudSelectItem Value="MenuChoice.Normal">Normal</MudSelectItem>
+                        <MudSelectItem Value="MenuChoice.Vegetarisch">Vegetarisch</MudSelectItem>
+                        <MudSelectItem Value="MenuChoice.Vegan">Vegan</MudSelectItem>
+                        <MudSelectItem Value="MenuChoice.Glutenfrei">Glutenfrei</MudSelectItem>
+                    </MudSelect>
+                </MudItem>
+
+                <MudItem xs="12">
+                    <MudTextField @bind-Value="_model.Allergies" Label="Allergien (optional)" Variant="Variant.Outlined"
+                                  Lines="2" />
+                </MudItem>
+                <MudItem xs="12">
+                    <MudTextField @bind-Value="_model.Notes" Label="Notiz (optional)" Variant="Variant.Outlined"
+                                  Lines="2" />
+                </MudItem>
+            </MudGrid>
+        </MudForm>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel">Abbrechen</MudButton>
+        <MudButton Color="Color.Primary" Variant="Variant.Filled" OnClick="SubmitAsync">
+            @(_isEdit ? "Speichern" : "Hinzufügen")
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter]
+    private IMudDialogInstance MudDialog { get; set; } = default!;
+
+    /// <summary>Der zu bearbeitende Gast. Null bedeutet "neuen Gast anlegen".</summary>
+    [Parameter]
+    public Guest? Guest { get; set; }
+
+    /// <summary>Bereits vorhandene Gruppennamen für die Autocomplete-Vorschläge.</summary>
+    [Parameter]
+    public IEnumerable<string> ExistingGroups { get; set; } = Enumerable.Empty<string>();
+
+    private MudForm _form = default!;
+    private Guest _model = new();
+    private bool _isEdit;
+
+    // Standard-Gruppenvorschläge, ergänzt um bereits verwendete Gruppen.
+    private static readonly string[] DefaultGroups =
+    {
+        "Familie Braut", "Familie Bräutigam", "Freunde", "Kollegen", "Sonstige"
+    };
+
+    protected override void OnInitialized()
+    {
+        _isEdit = Guest is not null;
+
+        // Beim Bearbeiten mit einer Kopie arbeiten, damit ein Abbruch die Originaldaten nicht verändert.
+        _model = _isEdit
+            ? new Guest
+            {
+                Id = Guest!.Id,
+                FirstName = Guest.FirstName,
+                LastName = Guest.LastName,
+                Email = Guest.Email,
+                Phone = Guest.Phone,
+                Category = Guest.Category,
+                Group = Guest.Group,
+                Rsvp = Guest.Rsvp,
+                PlusOnes = Guest.PlusOnes,
+                TableId = Guest.TableId,
+                Menu = Guest.Menu,
+                Allergies = Guest.Allergies,
+                AttendsReception = Guest.AttendsReception,
+                Notes = Guest.Notes
+            }
+            : new Guest();
+    }
+
+    // Vorschläge für die Gruppen-Autocomplete (Standard + bereits verwendete, ohne Duplikate).
+    private Task<IEnumerable<string>> SearchGroups(string value, CancellationToken token)
+    {
+        var all = DefaultGroups
+            .Concat(ExistingGroups)
+            .Where(g => !string.IsNullOrWhiteSpace(g))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(g => g);
+
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return Task.FromResult<IEnumerable<string>>(all);
+        }
+
+        return Task.FromResult(all.Where(g => g.Contains(value, StringComparison.OrdinalIgnoreCase)));
+    }
+
+    // Einfache E-Mail-Validierung (optionales Feld).
+    private string? ValidateEmail(string? email)
+    {
+        if (string.IsNullOrWhiteSpace(email))
+        {
+            return null; // Optional – leer ist gültig.
+        }
+
+        var pattern = @"^[^@\s]+@[^@\s]+\.[^@\s]+$";
+        return Regex.IsMatch(email, pattern) ? null : "Ungültige E-Mail-Adresse.";
+    }
+
+    private async Task SubmitAsync()
+    {
+        await _form.Validate();
+        if (!_form.IsValid)
+        {
+            return;
+        }
+
+        // Fallback für leere Gruppe.
+        if (string.IsNullOrWhiteSpace(_model.Group))
+        {
+            _model.Group = "Sonstige";
+        }
+
+        // Bearbeiteten/neuen Gast an den Aufrufer zurückgeben.
+        MudDialog.Close(DialogResult.Ok(_model));
+    }
+
+    private void Cancel() => MudDialog.Cancel();
+}

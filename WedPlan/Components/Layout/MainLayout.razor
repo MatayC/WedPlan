@@ -1,0 +1,175 @@
+﻿@inherits LayoutComponentBase
+@using WedPlan.Data
+@using WedPlan.Services
+@implements IDisposable
+@inject ISettingsService SettingsService
+@inject IAuthService AuthService
+@inject IWeddingService WeddingService
+@inject WeddingContext WeddingContext
+@inject WeddingRealtimeService Realtime
+@inject NavigationManager Navigation
+
+@* Zentrale MudBlazor-Provider: Theme, Popover, Dialog (Bestätigungen) und Snackbar (Feedback). *@
+<MudThemeProvider Theme="WeddingTheme.Theme" @bind-IsDarkMode="_isDarkMode" />
+<MudPopoverProvider />
+<MudDialogProvider />
+<MudSnackbarProvider />
+
+<MudLayout>
+    @* Obere AppBar mit Hamburger-Menü und Dark-Mode-Umschalter. *@
+    <MudAppBar Elevation="1">
+        <MudIconButton Icon="@Icons.Material.Filled.Menu"
+                       Color="Color.Inherit"
+                       Edge="Edge.Start"
+                       aria-label="Menü öffnen"
+                       OnClick="@DrawerToggle" />
+        <MudText Typo="Typo.h5" Class="ml-2">WedPlan</MudText>
+        @if (!string.IsNullOrEmpty(_coverUrl))
+        {
+            <MudAvatar Class="ml-3 d-none d-sm-flex" Size="Size.Medium">
+                <MudImage Src="@_coverUrl" ObjectFit="ObjectFit.Cover" />
+            </MudAvatar>
+        }
+        @if (!string.IsNullOrEmpty(WeddingContext.WeddingName))
+        {
+            <MudChip T="string" Size="Size.Small" Color="Color.Secondary" Variant="Variant.Text" Class="ml-2 d-none d-sm-flex">@WeddingContext.WeddingName</MudChip>
+        }
+        <MudSpacer />
+        <MudIconButton Icon="@(_isDarkMode ? Icons.Material.Filled.LightMode : Icons.Material.Filled.DarkMode)"
+                       Color="Color.Inherit"
+                       aria-label="Design wechseln"
+                       OnClick="@ToggleDarkModeAsync" />
+        <MudIconButton Icon="@Icons.Material.Filled.Logout"
+                       Color="Color.Inherit"
+                       aria-label="Abmelden"
+                       OnClick="@LogoutAsync" />
+    </MudAppBar>
+
+    @* Ausklappbares Navigations-Drawer (Hamburger). Responsive: schwebt über dem Inhalt auf kleinen Bildschirmen. *@
+    <MudDrawer @bind-Open="_drawerOpen"
+               ClipMode="DrawerClipMode.Always"
+               Elevation="2"
+               Variant="@DrawerVariant.Responsive">
+        <MudDrawerHeader>
+            <MudText Typo="Typo.h6">Menü</MudText>
+        </MudDrawerHeader>
+        <NavMenu />
+    </MudDrawer>
+
+    <MudMainContent>
+        @* pb-safe: Abstand für Bottom Navigation + iOS Home-Leiste *@
+        <MudContainer MaxWidth="MaxWidth.Large" Class="mt-4 px-4 pb-safe">
+            @Body
+        </MudContainer>
+    </MudMainContent>
+
+    @* Untere Navigation für die Hauptbereiche – besonders praktisch auf Smartphones. *@
+    @* Die Klasse mud-bottom-nav-safe stellt sicher, dass die Home-Leiste auf iPhone nicht überlappt. *@
+    <MudBottomNavigation Fixed="true" Color="Color.Primary" Class="mud-bottom-nav-safe">
+        <MudBottomNavigationItem Label="Start"    Icon="@Icons.Material.Filled.Dashboard"  OnClick="@(() => Navigate("/"))" />
+        <MudBottomNavigationItem Label="Gäste"   Icon="@Icons.Material.Filled.People"      OnClick="@(() => Navigate("/gaeste"))" />
+        <MudBottomNavigationItem Label="Budget"  Icon="@Icons.Material.Filled.EuroSymbol"  OnClick="@(() => Navigate("/budget"))" />
+        <MudBottomNavigationItem Label="Aufgaben" Icon="@Icons.Material.Filled.Checklist"  OnClick="@(() => Navigate("/aufgaben"))" />
+    </MudBottomNavigation>
+</MudLayout>
+
+<div id="blazor-error-ui" data-nosnippet>
+    An unhandled error has occurred.
+    <a href="." class="reload">Reload</a>
+    <span class="dismiss">🗙</span>
+</div>
+
+@code {
+    // Zustand des Drawers (Standard: geöffnet auf großen Bildschirmen).
+    private bool _drawerOpen = true;
+
+    // Aktueller Dark-Mode-Zustand, gebunden an den MudThemeProvider.
+    private bool _isDarkMode;
+
+    // URL des Titelbilds der aktiven Hochzeit (für das AppBar-Thumbnail).
+    private string? _coverUrl;
+
+    protected override void OnInitialized()
+    {
+        // Event-Handler registrieren (kein JS-Interop nötig, daher hier sicher).
+        SettingsService.OnChange += OnSettingsChanged;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+
+        // Nicht angemeldete Benutzer zur Login-Seite umleiten.
+        if (!await AuthService.IsLoggedInAsync())
+        {
+            Navigation.NavigateTo("/login", replace: true);
+            return;
+        }
+
+        // Angemeldet, aber (noch) keiner Hochzeit zugeordnet? -> Onboarding.
+        if (!await WeddingService.LoadActiveWeddingAsync())
+        {
+            Navigation.NavigateTo("/onboarding", replace: true);
+            return;
+        }
+
+        // Einstellungen der aktiven Hochzeit laden (u.a. Dark Mode).
+        var settings = await SettingsService.GetAsync();
+        _isDarkMode = settings.IsDarkMode;
+        _coverUrl = settings.CoverImageUrl;
+        Realtime.OnSettingsChanged += OnRealtimeSettingsChanged;
+        await Realtime.StartAsync();
+
+        StateHasChanged();
+    }
+
+    // Abmelden und zur Login-Seite wechseln.
+    private async Task LogoutAsync()
+    {
+        await WeddingContext.PersistActiveAsync(null);
+        WeddingContext.Clear();
+        await AuthService.LogoutAsync();
+        Navigation.NavigateTo("/login", replace: true);
+    }
+
+    private void DrawerToggle()
+    {
+        _drawerOpen = !_drawerOpen;
+    }
+
+    // Dark Mode umschalten und Präferenz persistieren.
+    private async Task ToggleDarkModeAsync()
+    {
+        _isDarkMode = !_isDarkMode;
+        var settings = await SettingsService.GetAsync();
+        settings.IsDarkMode = _isDarkMode;
+        await SettingsService.SaveAsync(settings);
+    }
+
+    // Navigation aus der BottomNavigation heraus.
+    private void Navigate(string url) => Navigation.NavigateTo(url);
+
+    // Wird aufgerufen, wenn die Einstellungen anderswo geändert wurden.
+    private async void OnSettingsChanged()
+    {
+        var settings = await SettingsService.GetAsync();
+        _isDarkMode = settings.IsDarkMode;
+        await InvokeAsync(StateHasChanged);
+    }
+
+    // Reagiert auf Live-Änderungen der Einstellungen durch andere Mitglieder.
+    private async void OnRealtimeSettingsChanged()
+    {
+        SettingsService.InvalidateCache();
+        var settings = await SettingsService.GetAsync();
+        _isDarkMode = settings.IsDarkMode;
+        _coverUrl = settings.CoverImageUrl;
+        await InvokeAsync(StateHasChanged);
+    }
+
+    public void Dispose()
+    {
+        SettingsService.OnChange -= OnSettingsChanged;
+        Realtime.OnSettingsChanged -= OnRealtimeSettingsChanged;
+    }
+}

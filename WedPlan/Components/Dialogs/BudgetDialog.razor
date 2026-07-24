@@ -1,0 +1,147 @@
+@using WedPlan.Models
+
+<MudDialog>
+    <TitleContent>
+        <MudText Typo="Typo.h6">
+            <MudIcon Icon="@Icons.Material.Filled.EuroSymbol" Class="mr-2" />
+            @(_isEdit ? "Posten bearbeiten" : "Posten hinzufügen")
+        </MudText>
+    </TitleContent>
+    <DialogContent>
+        <MudForm @ref="_form">
+            <MudGrid Spacing="2">
+                <MudItem xs="12">
+                    <MudTextField @bind-Value="_model.Title" Label="Bezeichnung" Variant="Variant.Outlined"
+                                  Required="true" RequiredError="Bezeichnung ist erforderlich." />
+                </MudItem>
+
+                <MudItem xs="12" sm="6">
+                    @* Kategorie frei wählbar mit Standardvorschlägen. *@
+                    <MudAutocomplete T="string" @bind-Value="_model.Category" Label="Kategorie" Variant="Variant.Outlined"
+                                     SearchFunc="@SearchCategories" CoerceValue="true" CoerceText="false"
+                                     HelperText="Standardkategorien oder eigene eingeben" />
+                </MudItem>
+                <MudItem xs="12" sm="6">
+                    <MudTextField @bind-Value="_model.Vendor" Label="Lieferant / Anbieter (optional)"
+                                  Variant="Variant.Outlined" />
+                </MudItem>
+
+                <MudItem xs="12" sm="4">
+                    <MudNumericField @bind-Value="_model.EstimatedCost" Label="Geplante Kosten"
+                                     Variant="Variant.Outlined" Min="0m" Format="N2"
+                                     Adornment="Adornment.Start" AdornmentText="@Currency" />
+                </MudItem>
+                <MudItem xs="12" sm="4">
+                    <MudNumericField @bind-Value="_model.ActualCost" Label="Tatsächliche Kosten"
+                                     Variant="Variant.Outlined" Min="0m" Format="N2"
+                                     Adornment="Adornment.Start" AdornmentText="@Currency" />
+                </MudItem>
+                <MudItem xs="12" sm="4">
+                    <MudNumericField @bind-Value="_model.PaidAmount" Label="Bereits bezahlt"
+                                     Variant="Variant.Outlined" Min="0m" Format="N2"
+                                     Adornment="Adornment.Start" AdornmentText="@Currency" />
+                </MudItem>
+
+                <MudItem xs="12" sm="6">
+                    <MudSelect @bind-Value="_model.Status" Label="Status" Variant="Variant.Outlined">
+                        <MudSelectItem Value="BudgetStatus.Geplant">Geplant</MudSelectItem>
+                        <MudSelectItem Value="BudgetStatus.Beauftragt">Beauftragt</MudSelectItem>
+                        <MudSelectItem Value="BudgetStatus.Angezahlt">Angezahlt</MudSelectItem>
+                        <MudSelectItem Value="BudgetStatus.Bezahlt">Bezahlt</MudSelectItem>
+                    </MudSelect>
+                </MudItem>
+                <MudItem xs="12" sm="6">
+                    <MudDatePicker @bind-Date="_dueDate" Label="Fälligkeitsdatum (optional)"
+                                   Variant="Variant.Outlined" Clearable="true" />
+                </MudItem>
+
+                <MudItem xs="12">
+                    <MudTextField @bind-Value="_model.Notes" Label="Notiz (optional)" Variant="Variant.Outlined"
+                                  Lines="2" />
+                </MudItem>
+            </MudGrid>
+        </MudForm>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel">Abbrechen</MudButton>
+        <MudButton Color="Color.Primary" Variant="Variant.Filled" OnClick="SubmitAsync">
+            @(_isEdit ? "Speichern" : "Hinzufügen")
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter]
+    private IMudDialogInstance MudDialog { get; set; } = default!;
+
+    /// <summary>Der zu bearbeitende Posten. Null = neuen Posten anlegen.</summary>
+    [Parameter]
+    public BudgetItem? Item { get; set; }
+
+    /// <summary>Währungssymbol aus den Einstellungen.</summary>
+    [Parameter]
+    public string Currency { get; set; } = "€";
+
+    private MudForm _form = default!;
+    private BudgetItem _model = new();
+    private bool _isEdit;
+
+    // Hilfsvariable für den Date-Picker (DateTime statt DateOnly).
+    private DateTime? _dueDate;
+
+    protected override void OnInitialized()
+    {
+        _isEdit = Item is not null;
+
+        // Beim Bearbeiten mit Kopie arbeiten, damit Abbrechen nichts verändert.
+        _model = _isEdit
+            ? new BudgetItem
+            {
+                Id = Item!.Id,
+                Title = Item.Title,
+                Category = Item.Category,
+                Vendor = Item.Vendor,
+                EstimatedCost = Item.EstimatedCost,
+                ActualCost = Item.ActualCost,
+                PaidAmount = Item.PaidAmount,
+                Status = Item.Status,
+                DueDate = Item.DueDate,
+                Notes = Item.Notes
+            }
+            : new BudgetItem { Category = BudgetCategories.Sonstiges };
+
+        _dueDate = _model.DueDate;
+    }
+
+    // Vorschläge für die Kategorie-Autocomplete.
+    private Task<IEnumerable<string>> SearchCategories(string value, CancellationToken token)
+    {
+        IEnumerable<string> results = BudgetCategories.All;
+        if (!string.IsNullOrWhiteSpace(value))
+        {
+            results = results.Where(c => c.Contains(value, StringComparison.OrdinalIgnoreCase));
+        }
+        return Task.FromResult(results);
+    }
+
+    private async Task SubmitAsync()
+    {
+        await _form.Validate();
+        if (!_form.IsValid)
+        {
+            return;
+        }
+
+        _model.DueDate = _dueDate;
+
+        // Fallback für leere Kategorie.
+        if (string.IsNullOrWhiteSpace(_model.Category))
+        {
+            _model.Category = BudgetCategories.Sonstiges;
+        }
+
+        MudDialog.Close(DialogResult.Ok(_model));
+    }
+
+    private void Cancel() => MudDialog.Cancel();
+}

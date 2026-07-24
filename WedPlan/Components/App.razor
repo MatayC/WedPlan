@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="de">
+
+<head>
+    <meta charset="utf-8" />
+
+    <!-- Viewport: viewport-fit=cover ermöglicht Nutzung des safe-area-inset auf iPhone mit Notch/Dynamic Island -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+
+    <base href="/" />
+    <ResourcePreloader />
+
+    <!-- ═══ PWA Manifest ═══ -->
+    <link rel="manifest" href="/manifest.json" />
+
+    <!-- ═══ PWA / Theme-Farben ═══ -->
+    <!-- theme-color wird von Chrome/Android für die Browser-Toolbar verwendet -->
+    <meta name="theme-color" content="#D6A6AC" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#2D1B1F" media="(prefers-color-scheme: dark)" />
+
+    <!-- ═══ iOS / Safari PWA ═══ -->
+    <!-- Ermöglicht "Zum Home-Bildschirm" als vollständige App ohne Browser-UI -->
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <!-- Statusbar-Stil: black-translucent = App nutzt den gesamten Bildschirm inkl. Notch-Bereich -->
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="WedPlan" />
+
+    <!-- ═══ Apple Touch Icons (für Home-Screen Shortcut auf iOS) ═══ -->
+    <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+    <link rel="apple-touch-icon" sizes="152x152" href="/icons/icon-152.png" />
+    <link rel="apple-touch-icon" sizes="192x192" href="/icons/icon-192.png" />
+
+    <!-- ═══ Standard Favicon ═══ -->
+    <link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192.png" />
+    <link rel="icon" type="image/png" href="favicon.png" />
+
+    <!-- ═══ Stylesheets ═══ -->
+    <link rel="stylesheet" href="@Assets["lib/bootstrap/dist/css/bootstrap.min.css"]" />
+    <link rel="stylesheet" href="@Assets["app.css"]" />
+    <link rel="stylesheet" href="@Assets["WedPlan.styles.css"]" />
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet" />
+
+    <link href="_content/MudBlazor/MudBlazor.min.css" rel="stylesheet" />
+
+    <ImportMap />
+    <HeadOutlet />
+</head>
+
+<body>
+    <Routes @rendermode="InteractiveServer" />
+    <ReconnectModal />
+    <script src="@Assets["_framework/blazor.web.js"]"></script>
+    <script src="_content/MudBlazor/MudBlazor.min.js"></script>
+
+    <!-- ═══ Service Worker Registrierung ═══ -->
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', function () {
+                navigator.serviceWorker.register('/service-worker.js')
+                    .then(reg => console.log('[PWA] Service Worker registriert:', reg.scope))
+                    .catch(err => console.warn('[PWA] Service Worker Fehler:', err));
+            });
+        }
+    </script>
+</body>
+
+</html>

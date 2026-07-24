@@ -1,0 +1,196 @@
+@page "/onboarding"
+@layout LoginLayout
+@using WedPlan.Services
+@inject IAuthService AuthService
+@inject IWeddingService WeddingService
+@inject NavigationManager Navigation
+
+<PageTitle>Los geht's – WedPlan</PageTitle>
+
+<div class="login-wrapper">
+    <MudPaper Elevation="4" Class="login-card pa-6 rounded-xl">
+        <div class="d-flex flex-column align-center mb-4">
+            <MudIcon Icon="@Icons.Material.Filled.Celebration" Color="Color.Primary" Size="Size.Large" />
+            <MudText Typo="Typo.h5" Class="mt-2">Willkommen bei WedPlan</MudText>
+            <MudText Typo="Typo.body2" Align="Align.Center" Class="mud-text-secondary mt-1">
+                Lege eure Hochzeit an oder tritt der Hochzeit deiner*deines Partner*in bei.
+            </MudText>
+        </div>
+
+        <MudTabs Elevation="0" Centered="true" Rounded="true" ApplyEffectsToContainer="true"
+                 @bind-ActivePanelIndex="_activeTab" Class="mb-4">
+            <MudTabPanel Text="Neu anlegen" />
+            <MudTabPanel Text="Beitreten" />
+        </MudTabs>
+
+        @if (_activeTab == 0)
+        {
+            <MudForm @ref="_createForm">
+                <MudTextField @bind-Value="_weddingName"
+                              Label="Name eurer Hochzeit"
+                              Placeholder="z.B. Anna & Ben"
+                              Variant="Variant.Outlined"
+                              Required="true"
+                              RequiredError="Bitte einen Namen eingeben"
+                              Adornment="Adornment.Start"
+                              AdornmentIcon="@Icons.Material.Filled.Favorite"
+                              Class="mb-3" />
+            </MudForm>
+
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" FullWidth="true"
+                       Size="Size.Large" Disabled="_busy" OnClick="CreateAsync" Class="rounded-lg">
+                @if (_busy)
+                {
+                    <MudProgressCircular Class="mr-2" Size="Size.Small" Indeterminate="true" />
+                    <span>Anlegen…</span>
+                }
+                else
+                {
+                    <span>Hochzeit anlegen</span>
+                }
+            </MudButton>
+        }
+        else
+        {
+            <MudForm @ref="_joinForm">
+                <MudTextField @bind-Value="_inviteCode"
+                              Label="Einladungs-Code"
+                              Placeholder="z.B. AB3D7K"
+                              Variant="Variant.Outlined"
+                              Required="true"
+                              RequiredError="Bitte den Code eingeben"
+                              Adornment="Adornment.Start"
+                              AdornmentIcon="@Icons.Material.Filled.Key"
+                              Class="mb-3" />
+            </MudForm>
+
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" FullWidth="true"
+                       Size="Size.Large" Disabled="_busy" OnClick="JoinAsync" Class="rounded-lg">
+                @if (_busy)
+                {
+                    <MudProgressCircular Class="mr-2" Size="Size.Small" Indeterminate="true" />
+                    <span>Beitreten…</span>
+                }
+                else
+                {
+                    <span>Hochzeit beitreten</span>
+                }
+            </MudButton>
+        }
+
+        @if (!string.IsNullOrEmpty(_error))
+        {
+            <MudAlert Severity="Severity.Error" Class="mt-3" Dense="true">@_error</MudAlert>
+        }
+
+        <div class="d-flex justify-center mt-4">
+            <MudLink OnClick="LogoutAsync" Typo="Typo.body2">Abmelden</MudLink>
+        </div>
+    </MudPaper>
+</div>
+
+@code {
+    private MudForm _createForm = default!;
+    private MudForm _joinForm = default!;
+    private int _activeTab;
+    private string _weddingName = string.Empty;
+    private string _inviteCode = string.Empty;
+    private string? _error;
+    private bool _busy;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+
+        // Nicht angemeldet? -> Login.
+        if (!await AuthService.IsLoggedInAsync())
+        {
+            Navigation.NavigateTo("/login", replace: true);
+            return;
+        }
+
+        // Query-Parameter auswerten: code (geteilter Link) und new (weiteres Projekt anlegen).
+        var uri = Navigation.ToAbsoluteUri(Navigation.Uri);
+        var query = Microsoft.AspNetCore.WebUtilities.QueryHelpers.ParseQuery(uri.Query);
+        var isNew = query.TryGetValue("new", out var newFlag) && newFlag == "1";
+
+        // Schon in einer Hochzeit? -> Start. Außer der Nutzer will ausdrücklich ein
+        // weiteres Projekt anlegen/beitreten (new=1) oder öffnet einen Einladungslink (code=...).
+        var hasCode = query.TryGetValue("code", out var code) && !string.IsNullOrWhiteSpace(code);
+        if (!isNew && !hasCode && await WeddingService.LoadActiveWeddingAsync())
+        {
+            Navigation.NavigateTo("/", replace: true);
+            return;
+        }
+
+        // Einladungs-Code aus der URL übernehmen (geteilter Link: /onboarding?code=ABC123).
+        if (hasCode)
+        {
+            _inviteCode = code.ToString();
+            _activeTab = 1;
+            StateHasChanged();
+        }
+    }
+
+    private async Task CreateAsync()
+    {
+        _error = null;
+        await _createForm.Validate();
+        if (!_createForm.IsValid)
+        {
+            return;
+        }
+
+        _busy = true;
+        try
+        {
+            var (success, error) = await WeddingService.CreateWeddingAsync(_weddingName);
+            if (success)
+            {
+                Navigation.NavigateTo("/", forceLoad: true);
+            }
+            else
+            {
+                _error = error;
+            }
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private async Task JoinAsync()
+    {
+        _error = null;
+        await _joinForm.Validate();
+        if (!_joinForm.IsValid)
+        {
+            return;
+        }
+
+        _busy = true;
+        try
+        {
+            var (success, error) = await WeddingService.JoinWeddingAsync(_inviteCode);
+            if (success)
+            {
+                Navigation.NavigateTo("/", forceLoad: true);
+            }
+            else
+            {
+                _error = error;
+            }
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private async Task LogoutAsync()
+    {
+        await AuthService.LogoutAsync();
+        Navigation.NavigateTo("/login", replace: true);
+    }
+}

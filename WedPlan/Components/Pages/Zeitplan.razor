@@ -1,0 +1,381 @@
+@page "/zeitplan"
+@using System.Globalization
+@using WedPlan.Models
+@using WedPlan.Services
+@using WedPlan.Components.Dialogs
+@inject IScheduleService ScheduleService
+@inject ISettingsService SettingsService
+@inject IDialogService DialogService
+@inject PermissionService Permissions
+@inject ISnackbar Snackbar
+
+<PageTitle>Zeitplan – WedPlan</PageTitle>
+
+<div class="d-flex align-center justify-space-between flex-wrap mb-4">
+    <MudText Typo="Typo.h3">Zeitplan</MudText>
+    @if (_canEdit)
+    {
+        <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                   StartIcon="@Icons.Material.Filled.Add"
+                   OnClick="@(() => OpenDialogAsync(null))">Termin hinzufügen</MudButton>
+    }
+</div>
+
+@if (_loading)
+{
+    <MudProgressLinear Color="Color.Primary" Indeterminate="true" Class="my-8" />
+}
+else
+{
+    @* ---------- Ansichts-Umschalter ---------- *@
+    <MudCard Elevation="1" Class="rounded-lg mb-4">
+        <MudCardContent Class="py-2">
+            <MudTabs @bind-ActivePanelIndex="_activeTab" Centered="true" Color="Color.Primary"
+                     Rounded="true" PanelClass="pa-0">
+                <MudTabPanel Text="Der große Tag" Icon="@Icons.Material.Filled.Favorite" />
+                <MudTabPanel Text="Planungs-Meilensteine" Icon="@Icons.Material.Filled.Flag" />
+            </MudTabs>
+        </MudCardContent>
+    </MudCard>
+
+    @* ══════════════════════════════════════════════════════════════════════
+       Ansicht 1: Der große Tag (Hochzeitstag-Ablauf, nach Uhrzeit)
+       ══════════════════════════════════════════════════════════════════════ *@
+    @if (_activeTab == 0)
+    {
+        @if (_weddingDayItems.Count == 0)
+        {
+            <MudCard Elevation="2" Class="rounded-lg">
+                <MudCardContent Class="d-flex flex-column align-center py-8">
+                    <MudIcon Icon="@Icons.Material.Filled.Favorite" Color="Color.Secondary" Size="Size.Large" />
+                    <MudText Typo="Typo.h6" Class="mt-3">Noch keine Programmpunkte für den großen Tag.</MudText>
+                    <MudText Typo="Typo.body2" Class="mud-text-secondary mt-1">
+                        Füge die Programmpunkte eures Hochzeitstags hinzu: Trauung, Sektempfang, Dinner …
+                    </MudText>
+                    @if (_canEdit)
+                    {
+                        <MudButton Class="mt-4" Variant="Variant.Outlined" Color="Color.Primary"
+                                   StartIcon="@Icons.Material.Filled.Add"
+                                   OnClick="@(() => OpenDialogAsync(null, isMilestone: false))">
+                            Ersten Programmpunkt hinzufügen
+                        </MudButton>
+                    }
+                </MudCardContent>
+            </MudCard>
+        }
+        else
+        {
+            @* Datum-Banner, wenn Hochzeitsdatum bekannt *@
+            @if (_weddingDate.HasValue)
+            {
+                <MudCard Elevation="0" Class="rounded-xl mb-4 zeitplan-day-banner">
+                    <MudCardContent Class="py-3">
+                        <MudText Typo="Typo.h5" Align="Align.Center" Class="wedding-font">
+                            @_weddingDate.Value.ToString("dddd, dd. MMMM yyyy", _culture)
+                        </MudText>
+                    </MudCardContent>
+                </MudCard>
+            }
+
+            @* Vertikale Timeline für den Hochzeitstag *@
+            <MudTimeline TimelinePosition="TimelinePosition.Start" Class="zeitplan-timeline">
+                @foreach (var item in _weddingDayItems)
+                {
+                    var cat = CategoryMeta(item.Category);
+                    var isNext = _nextItem?.Id == item.Id;
+
+                    <MudTimelineItem Color="@cat.Color" Size="Size.Medium"
+                                     Icon="@cat.Icon" Variant="Variant.Filled">
+                        <ItemOpposite>
+                            @* Zeit links neben dem Dot *@
+                            <MudText Typo="Typo.h6" Color="@cat.Color" Class="zeitplan-time">
+                                @item.StartTime.ToString("HH:mm")
+                            </MudText>
+                            @if (item.EndTime.HasValue)
+                            {
+                                <MudText Typo="Typo.caption" Class="mud-text-secondary">
+                                    bis @item.EndTime.Value.ToString("HH:mm")
+                                </MudText>
+                            }
+                        </ItemOpposite>
+                        <ItemContent>
+                            <MudCard Elevation="@(isNext ? 4 : 2)"
+                                     Class="@($"rounded-lg mb-2 {(isNext ? "zeitplan-next-card" : "")}")">
+                                <MudCardContent Class="py-3">
+                                    <div class="d-flex justify-space-between align-start">
+                                        <div class="flex-grow-1">
+                                            <div class="d-flex align-center gap-2 flex-wrap">
+                                                <MudText Typo="Typo.subtitle1"><b>@item.Title</b></MudText>
+                                                <MudChip T="string" Size="Size.Small" Color="@cat.Color"
+                                                         Variant="Variant.Outlined">@item.Category</MudChip>
+                                                @if (isNext)
+                                                {
+                                                    <MudChip T="string" Size="Size.Small" Color="Color.Primary"
+                                                             Variant="Variant.Filled">Als nächstes</MudChip>
+                                                }
+                                            </div>
+                                            @if (!string.IsNullOrWhiteSpace(item.Description))
+                                            {
+                                                <MudText Typo="Typo.body2" Class="mud-text-secondary mt-1">
+                                                    @item.Description
+                                                </MudText>
+                                            }
+                                            <div class="d-flex flex-wrap gap-3 mt-1">
+                                                @if (!string.IsNullOrWhiteSpace(item.Location))
+                                                {
+                                                    <MudText Typo="Typo.caption" Class="mud-text-secondary">
+                                                        <MudIcon Icon="@Icons.Material.Filled.Place" Size="Size.Small" Class="mr-1" />@item.Location
+                                                    </MudText>
+                                                }
+                                                @if (!string.IsNullOrWhiteSpace(item.ResponsiblePerson))
+                                                {
+                                                    <MudText Typo="Typo.caption" Class="mud-text-secondary">
+                                                        <MudIcon Icon="@Icons.Material.Filled.Person" Size="Size.Small" Class="mr-1" />@item.ResponsiblePerson
+                                                    </MudText>
+                                                }
+                                            </div>
+                                        </div>
+                                        @if (_canEdit)
+                                        {
+                                            <div class="d-flex flex-shrink-0">
+                                                <MudIconButton Icon="@Icons.Material.Filled.Edit" Size="Size.Small"
+                                                               Color="Color.Primary" aria-label="Bearbeiten"
+                                                               OnClick="@(() => OpenDialogAsync(item))" />
+                                                <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small"
+                                                               Color="Color.Error" aria-label="Löschen"
+                                                               OnClick="@(() => DeleteAsync(item))" />
+                                            </div>
+                                        }
+                                    </div>
+                                </MudCardContent>
+                            </MudCard>
+                        </ItemContent>
+                    </MudTimelineItem>
+                }
+            </MudTimeline>
+        }
+    }
+
+    @* ══════════════════════════════════════════════════════════════════════
+       Ansicht 2: Planungs-Meilensteine (Termine im Vorfeld)
+       ══════════════════════════════════════════════════════════════════════ *@
+    @if (_activeTab == 1)
+    {
+        @if (_milestoneItems.Count == 0)
+        {
+            <MudCard Elevation="2" Class="rounded-lg">
+                <MudCardContent Class="d-flex flex-column align-center py-8">
+                    <MudIcon Icon="@Icons.Material.Filled.Flag" Color="Color.Secondary" Size="Size.Large" />
+                    <MudText Typo="Typo.h6" Class="mt-3">Noch keine Planungs-Meilensteine.</MudText>
+                    <MudText Typo="Typo.body2" Class="mud-text-secondary mt-1">
+                        Trage wichtige Termine ein: Standesamt-Termin, Kleidanprobe, Probe-Dinner …
+                    </MudText>
+                    @if (_canEdit)
+                    {
+                        <MudButton Class="mt-4" Variant="Variant.Outlined" Color="Color.Primary"
+                                   StartIcon="@Icons.Material.Filled.Add"
+                                   OnClick="@(() => OpenDialogAsync(null, isMilestone: true))">
+                            Ersten Meilenstein hinzufügen
+                        </MudButton>
+                    }
+                </MudCardContent>
+            </MudCard>
+        }
+        else
+        {
+            @* Meilenstein-Timeline nach Datum sortiert *@
+            <MudTimeline TimelinePosition="TimelinePosition.Start" Class="zeitplan-timeline">
+                @foreach (var item in _milestoneItems)
+                {
+                    var cat = CategoryMeta(item.Category);
+                    var isPast = item.StartTime.Date < DateTime.Today;
+                    var isToday = item.StartTime.Date == DateTime.Today;
+
+                    <MudTimelineItem Color="@(isPast ? Color.Default : cat.Color)" Size="Size.Medium"
+                                     Icon="@(isPast ? Icons.Material.Filled.CheckCircle : cat.Icon)"
+                                     Variant="Variant.Filled">
+                        <ItemOpposite>
+                            <MudText Typo="Typo.body2"
+                                     Color="@(isPast ? Color.Default : cat.Color)"
+                                     Class="@(isToday ? "font-weight-bold" : "")">
+                                @item.StartTime.ToString("dd. MMM", _culture)
+                            </MudText>
+                            <MudText Typo="Typo.caption" Class="mud-text-secondary d-block">
+                                @item.StartTime.ToString("yyyy")
+                            </MudText>
+                            @if (item.StartTime.TimeOfDay > TimeSpan.Zero)
+                            {
+                                <MudText Typo="Typo.caption" Class="mud-text-secondary">
+                                    @item.StartTime.ToString("HH:mm")
+                                </MudText>
+                            }
+                        </ItemOpposite>
+                        <ItemContent>
+                            <MudCard Elevation="@(isToday ? 4 : 2)"
+                                     Class="@($"rounded-lg mb-2 {(isToday ? "zeitplan-next-card" : "")} {(isPast ? "zeitplan-past-card" : "")}")">
+                                <MudCardContent Class="py-3">
+                                    <div class="d-flex justify-space-between align-start">
+                                        <div class="flex-grow-1">
+                                            <div class="d-flex align-center gap-2 flex-wrap">
+                                                <MudText Typo="Typo.subtitle1"
+                                                         Class="@(isPast ? "mud-text-secondary" : "")">
+                                                    <b>@item.Title</b>
+                                                </MudText>
+                                                @if (isToday)
+                                                {
+                                                    <MudChip T="string" Size="Size.Small" Color="Color.Primary" Variant="Variant.Filled">Heute!</MudChip>
+                                                }
+                                                else if (isPast)
+                                                {
+                                                    <MudChip T="string" Size="Size.Small" Color="Color.Default" Variant="Variant.Outlined">Vergangen</MudChip>
+                                                }
+                                                else
+                                                {
+                                                    var daysLeft = (item.StartTime.Date - DateTime.Today).Days;
+                                                    <MudChip T="string" Size="Size.Small" Color="Color.Info" Variant="Variant.Outlined">
+                                                        in @daysLeft Tag@(daysLeft == 1 ? "" : "en")
+                                                    </MudChip>
+                                                }
+                                            </div>
+                                            @if (!string.IsNullOrWhiteSpace(item.Description))
+                                            {
+                                                <MudText Typo="Typo.body2" Class="mud-text-secondary mt-1">@item.Description</MudText>
+                                            }
+                                            <div class="d-flex flex-wrap gap-3 mt-1">
+                                                @if (!string.IsNullOrWhiteSpace(item.Location))
+                                                {
+                                                    <MudText Typo="Typo.caption" Class="mud-text-secondary">
+                                                        <MudIcon Icon="@Icons.Material.Filled.Place" Size="Size.Small" Class="mr-1" />@item.Location
+                                                    </MudText>
+                                                }
+                                                @if (!string.IsNullOrWhiteSpace(item.ResponsiblePerson))
+                                                {
+                                                    <MudText Typo="Typo.caption" Class="mud-text-secondary">
+                                                        <MudIcon Icon="@Icons.Material.Filled.Person" Size="Size.Small" Class="mr-1" />@item.ResponsiblePerson
+                                                    </MudText>
+                                                }
+                                            </div>
+                                        </div>
+                                        @if (_canEdit)
+                                        {
+                                            <div class="d-flex flex-shrink-0">
+                                                <MudIconButton Icon="@Icons.Material.Filled.Edit" Size="Size.Small"
+                                                               Color="Color.Primary" aria-label="Bearbeiten"
+                                                               OnClick="@(() => OpenDialogAsync(item))" />
+                                                <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small"
+                                                               Color="Color.Error" aria-label="Löschen"
+                                                               OnClick="@(() => DeleteAsync(item))" />
+                                            </div>
+                                        }
+                                    </div>
+                                </MudCardContent>
+                            </MudCard>
+                        </ItemContent>
+                    </MudTimelineItem>
+                }
+            </MudTimeline>
+        }
+    }
+}
+
+@code {
+    private readonly CultureInfo _culture = new("de-DE");
+    private bool _loading = true;
+    private bool _canEdit;
+
+    // 0 = Großer Tag, 1 = Planungs-Meilensteine
+    private int _activeTab;
+
+    private List<ScheduleItem> _weddingDayItems = new();
+    private List<ScheduleItem> _milestoneItems = new();
+    private ScheduleItem? _nextItem;
+    private DateTime? _weddingDate;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await Permissions.EnsureLoadedAsync();
+            _canEdit = Permissions.CanEdit(WeddingPages.Schedule);
+            var settings = await SettingsService.GetAsync();
+            _weddingDate = settings.WeddingDate;
+            await ReloadAsync();
+            _loading = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task ReloadAsync()
+    {
+        var all = await ScheduleService.GetAllAsync(); // bereits nach StartTime sortiert
+
+        // Aufteilen in Hochzeitstag-Ablauf und Planungs-Meilensteine.
+        _weddingDayItems = all.Where(s => !s.IsMilestone).OrderBy(s => s.StartTime).ToList();
+        _milestoneItems  = all.Where(s => s.IsMilestone).OrderBy(s => s.StartTime).ToList();
+
+        // Nächsten Programmpunkt des Hochzeitstags ermitteln.
+        _nextItem = _weddingDayItems.FirstOrDefault(s => s.StartTime >= DateTime.Now);
+    }
+
+    private async Task OpenDialogAsync(ScheduleItem? item, bool isMilestone = false)
+    {
+        var defaultMilestone = item?.IsMilestone ?? (_activeTab == 1 || isMilestone);
+        var parameters = new DialogParameters<ScheduleDialog>
+        {
+            { x => x.Item, item },
+            { x => x.DefaultIsMilestone, defaultMilestone }
+        };
+        var options = new DialogOptions { MaxWidth = MaxWidth.Medium, FullWidth = true, CloseButton = true };
+        var dialog = await DialogService.ShowAsync<ScheduleDialog>(
+            item is null ? "Termin hinzufügen" : "Termin bearbeiten", parameters, options);
+        var result = await dialog.Result;
+
+        if (result is not null && !result.Canceled && result.Data is ScheduleItem edited)
+        {
+            if (item is null)
+            {
+                await ScheduleService.AddAsync(edited);
+                Snackbar.Add($"'{edited.Title}' wurde hinzugefügt.", Severity.Success);
+            }
+            else
+            {
+                await ScheduleService.UpdateAsync(edited);
+                Snackbar.Add($"'{edited.Title}' wurde aktualisiert.", Severity.Success);
+            }
+            await ReloadAsync();
+            // Automatisch in den richtigen Tab wechseln.
+            _activeTab = edited.IsMilestone ? 1 : 0;
+        }
+    }
+
+    private async Task DeleteAsync(ScheduleItem item)
+    {
+        var opts = new MessageBoxOptions
+        {
+            Title = "Termin löschen",
+            Message = $"'{item.Title}' wirklich löschen?",
+            YesText = "Löschen",
+            CancelText = "Abbrechen"
+        };
+        if (await DialogService.ShowMessageBoxAsync(opts) == true)
+        {
+            await ScheduleService.DeleteAsync(item.Id);
+            Snackbar.Add($"'{item.Title}' wurde gelöscht.", Severity.Info);
+            await ReloadAsync();
+        }
+    }
+
+    // ── Kategorie-Metadaten: Farbe + Icon je Kategorie ───────────────────────
+    private record CategoryStyle(Color Color, string Icon);
+
+    private static CategoryStyle CategoryMeta(ScheduleCategory cat) => cat switch
+    {
+        ScheduleCategory.Vorbereitung => new(Color.Info,      Icons.Material.Filled.Build),
+        ScheduleCategory.Trauung      => new(Color.Secondary, Icons.Material.Filled.Favorite),
+        ScheduleCategory.Empfang      => new(Color.Success,   Icons.Material.Filled.LocalBar),
+        ScheduleCategory.Dinner       => new(Color.Warning,   Icons.Material.Filled.Restaurant),
+        ScheduleCategory.Party        => new(Color.Error,     Icons.Material.Filled.MusicNote),
+        _                             => new(Color.Primary,   Icons.Material.Filled.Star)
+    };
+}
+

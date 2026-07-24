@@ -1,0 +1,537 @@
+﻿@page "/"
+@using System.Globalization
+@using WedPlan.Models
+@using WedPlan.Services
+@inject ISettingsService SettingsService
+@inject IGuestService GuestService
+@inject IBudgetService BudgetService
+@inject ITaskService TaskService
+@inject IScheduleService ScheduleService
+@inject NavigationManager Navigation
+@inject WeddingRealtimeService Realtime
+@implements IDisposable
+
+<PageTitle>Dashboard – WedPlan</PageTitle>
+
+@if (_loading)
+{
+    @* Ladezustand während die Daten aus den Services geladen werden. *@
+    <MudProgressLinear Color="Color.Primary" Indeterminate="true" Class="my-8" />
+    <MudText Typo="Typo.body2" Align="Align.Center" Class="mud-text-secondary">Dein Dashboard wird geladen …</MudText>
+}
+else
+{
+    <MudGrid Spacing="4">
+
+        @* ---------- Willkommens-Banner mit Countdown ---------- *@
+        <MudItem xs="12">
+            <MudCard Elevation="3" Class="@_bannerClass"
+                     Style="@(_hasCover ? $"--wedplan-cover: url('{_settings.CoverImageUrl}');" : "")">
+                <MudCardContent Class="py-8">
+                    <MudText Typo="Typo.overline" Align="Align.Center" Class="d-block">Wir heiraten</MudText>
+
+                    @if (!string.IsNullOrWhiteSpace(_settings.Partner1Name) || !string.IsNullOrWhiteSpace(_settings.Partner2Name))
+                    {
+                        <MudText Typo="Typo.h2" Align="Align.Center" Class="wedplan-couple">
+                            @(_settings.Partner1Name) <span class="wedplan-amp">&amp;</span> @(_settings.Partner2Name)
+                        </MudText>
+                    }
+                    else
+                    {
+                        <MudText Typo="Typo.h3" Align="Align.Center">Willkommen bei WedPlan</MudText>
+                    }
+
+                    @if (!string.IsNullOrWhiteSpace(_settings.Location))
+                    {
+                        <MudText Typo="Typo.subtitle1" Align="Align.Center" Class="mt-1">
+                            <MudIcon Icon="@Icons.Material.Filled.Place" Size="Size.Small" Class="mr-1" />@_settings.Location
+                        </MudText>
+                    }
+
+                    @if (_settings.WeddingDate is not null)
+                    {
+                        <MudText Typo="Typo.subtitle1" Align="Align.Center" Class="mt-2">
+                            @_settings.WeddingDate.Value.ToString("dddd, dd. MMMM yyyy", _culture)
+                        </MudText>
+
+                        <div class="d-flex justify-center mt-4">
+                            <MudPaper Elevation="0" Class="wedplan-countdown px-8 py-4 rounded-xl">
+                                @if (_daysUntilWedding > 0)
+                                {
+                                    <MudText Typo="Typo.h1" Align="Align.Center" Color="Color.Primary" Class="wedplan-countdown-number">@_daysUntilWedding</MudText>
+                                    <MudText Typo="Typo.h6" Align="Align.Center">@(_daysUntilWedding == 1 ? "Tag" : "Tage") bis zur Hochzeit</MudText>
+                                }
+                                else if (_daysUntilWedding == 0)
+                                {
+                                    <MudText Typo="Typo.h4" Align="Align.Center" Color="Color.Primary">Heute ist der große Tag! 🎉</MudText>
+                                }
+                                else
+                                {
+                                    <MudText Typo="Typo.h5" Align="Align.Center" Color="Color.Primary">Herzlichen Glückwunsch! 💍</MudText>
+                                    <MudText Typo="Typo.body2" Align="Align.Center">Vor @Math.Abs(_daysUntilWedding) Tagen habt ihr geheiratet.</MudText>
+                                }
+                            </MudPaper>
+                        </div>
+                    }
+                    else
+                    {
+                        <MudText Typo="Typo.body2" Align="Align.Center" Class="mt-3 mud-text-secondary">
+                            Lege in den <MudLink Href="/einstellungen">Einstellungen</MudLink> euer Hochzeitsdatum fest.
+                        </MudText>
+                    }
+                </MudCardContent>
+            </MudCard>
+        </MudItem>
+
+        @* ---------- Dezente Impressionen (Galeriebilder) ---------- *@
+        @if (_hasGallery)
+        {
+            <MudItem xs="12">
+                <div class="wedplan-impressions">
+                    @if (!string.IsNullOrWhiteSpace(_settings.GalleryImage1Url))
+                    {
+                        <div class="wedplan-impression rounded-xl"
+                             style="background-image: url('@_settings.GalleryImage1Url');"></div>
+                    }
+                    @if (!string.IsNullOrWhiteSpace(_settings.GalleryImage2Url))
+                    {
+                        <div class="wedplan-impression rounded-xl"
+                             style="background-image: url('@_settings.GalleryImage2Url');"></div>
+                    }
+                </div>
+            </MudItem>
+        }
+
+        @* ---------- Statistik-Karten ---------- *@
+
+        @* Gäste *@
+        <MudItem xs="12" sm="6" md="3">
+            <MudCard Elevation="2" Class="rounded-lg h-100" @onclick="@(() => Navigation.NavigateTo("/gaeste"))" Style="cursor:pointer">
+                <MudCardContent>
+                    <div class="d-flex align-center mb-2">
+                        <MudIcon Icon="@Icons.Material.Filled.People" Color="Color.Secondary" Class="mr-2" />
+                        <MudText Typo="Typo.h6">Gäste</MudText>
+                    </div>
+                    <MudText Typo="Typo.h4" Color="Color.Primary">@_guestCount</MudText>
+                    <MudText Typo="Typo.caption" Class="mud-text-secondary">insgesamt eingeladen</MudText>
+                    <MudDivider Class="my-2" />
+                    <div class="d-flex justify-space-between">
+                        <MudTooltip Text="Zugesagt">
+                            <div class="d-flex align-center">
+                                <MudIcon Icon="@Icons.Material.Filled.CheckCircle" Color="Color.Success" Size="Size.Small" Class="mr-1" />
+                                <MudText Typo="Typo.body2">@_guestsAccepted</MudText>
+                            </div>
+                        </MudTooltip>
+                        <MudTooltip Text="Abgesagt">
+                            <div class="d-flex align-center">
+                                <MudIcon Icon="@Icons.Material.Filled.Cancel" Color="Color.Error" Size="Size.Small" Class="mr-1" />
+                                <MudText Typo="Typo.body2">@_guestsDeclined</MudText>
+                            </div>
+                        </MudTooltip>
+                        <MudTooltip Text="Ausstehend">
+                            <div class="d-flex align-center">
+                                <MudIcon Icon="@Icons.Material.Filled.HelpOutline" Color="Color.Warning" Size="Size.Small" Class="mr-1" />
+                                <MudText Typo="Typo.body2">@_guestsPending</MudText>
+                            </div>
+                        </MudTooltip>
+                    </div>
+                </MudCardContent>
+            </MudCard>
+        </MudItem>
+
+        @* Budget *@
+        <MudItem xs="12" sm="6" md="3">
+            <MudCard Elevation="2" Class="rounded-lg h-100" @onclick="@(() => Navigation.NavigateTo("/budget"))" Style="cursor:pointer">
+                <MudCardContent>
+                    <div class="d-flex align-center mb-2">
+                        <MudIcon Icon="@Icons.Material.Filled.EuroSymbol" Color="Color.Secondary" Class="mr-2" />
+                        <MudText Typo="Typo.h6">Budget</MudText>
+                    </div>
+                    <MudText Typo="Typo.h4" Color="Color.Primary">@FormatCurrency(_budgetSpent)</MudText>
+                    <MudText Typo="Typo.caption" Class="mud-text-secondary">ausgegeben von @FormatCurrency(_budgetPlanned)</MudText>
+                    <MudProgressLinear Color="@(_budgetSpent > _budgetPlanned ? Color.Error : Color.Primary)"
+                                       Value="@_budgetUsedPercent" Class="my-2" Rounded="true" Size="Size.Medium" />
+                    <div class="d-flex justify-space-between">
+                        <MudText Typo="Typo.body2" Class="mud-text-secondary">Verbleibend</MudText>
+                        <MudText Typo="Typo.body2" Color="@(_budgetRemaining < 0 ? Color.Error : Color.Success)">
+                            @FormatCurrency(_budgetRemaining)
+                        </MudText>
+                    </div>
+                </MudCardContent>
+            </MudCard>
+        </MudItem>
+
+        @* Aufgaben *@
+        <MudItem xs="12" sm="6" md="3">
+            <MudCard Elevation="2" Class="rounded-lg h-100" @onclick="@(() => Navigation.NavigateTo("/aufgaben"))" Style="cursor:pointer">
+                <MudCardContent>
+                    <div class="d-flex align-center mb-2">
+                        <MudIcon Icon="@Icons.Material.Filled.Checklist" Color="Color.Secondary" Class="mr-2" />
+                        <MudText Typo="Typo.h6">Aufgaben</MudText>
+                    </div>
+                    <MudText Typo="Typo.h4" Color="Color.Primary">@_tasksDonePercent&#37;</MudText>
+                    <MudText Typo="Typo.caption" Class="mud-text-secondary">@_tasksDone von @_taskCount erledigt</MudText>
+                    <MudProgressLinear Color="Color.Success" Value="@_tasksDonePercent" Class="my-2" Rounded="true" Size="Size.Medium" />
+                    <div class="d-flex justify-space-between">
+                        <MudText Typo="Typo.body2" Class="mud-text-secondary">Offen</MudText>
+                        <MudText Typo="Typo.body2">@_tasksOpen</MudText>
+                    </div>
+                </MudCardContent>
+            </MudCard>
+        </MudItem>
+
+        @* Nächster Termin *@
+        <MudItem xs="12" sm="6" md="3">
+            <MudCard Elevation="2" Class="rounded-lg h-100" @onclick="@(() => Navigation.NavigateTo("/zeitplan"))" Style="cursor:pointer">
+                <MudCardContent>
+                    <div class="d-flex align-center mb-2">
+                        <MudIcon Icon="@Icons.Material.Filled.Event" Color="Color.Secondary" Class="mr-2" />
+                        <MudText Typo="Typo.h6">Nächster Termin</MudText>
+                    </div>
+                    @if (_nextScheduleItem is not null)
+                    {
+                        <MudText Typo="Typo.subtitle1" Class="wedplan-truncate">@_nextScheduleItem.Title</MudText>
+                        <MudText Typo="Typo.body2" Color="Color.Primary" Class="mt-1">
+                            @_nextScheduleItem.StartTime.ToString("dd. MMM yyyy, HH:mm", _culture) Uhr
+                        </MudText>
+                        @if (!string.IsNullOrWhiteSpace(_nextScheduleItem.Location))
+                        {
+                            <MudText Typo="Typo.caption" Class="mud-text-secondary">
+                                <MudIcon Icon="@Icons.Material.Filled.Place" Size="Size.Small" />@_nextScheduleItem.Location
+                            </MudText>
+                        }
+                    }
+                    else
+                    {
+                        <MudText Typo="Typo.body2" Class="mud-text-secondary mt-2">Keine anstehenden Termine.</MudText>
+                    }
+                </MudCardContent>
+            </MudCard>
+        </MudItem>
+
+        @* ---------- Charts ---------- *@
+
+        @* Donut: Zusage-Verteilung der Gäste *@
+        <MudItem xs="12" md="4">
+            <MudCard Elevation="2" Class="rounded-lg h-100">
+                <MudCardContent>
+                    <MudText Typo="Typo.h6" GutterBottom="true">Zusagen der Gäste</MudText>
+                    @if (_guestCount > 0)
+                    {
+                        <MudChart T="double" ChartType="ChartType.Donut" Width="100%" Height="220px"
+                                  InputData="@_guestChartData" InputLabels="@_guestChartLabels"
+                                  ChartOptions="@_donutOptions">
+                            <CustomGraphics>
+                                <text class="donut-inner-text" x="50%" y="50%" dominant-baseline="middle" text-anchor="middle">
+                                    @_guestCount Gäste
+                                </text>
+                            </CustomGraphics>
+                        </MudChart>
+                    }
+                    else
+                    {
+                        <MudText Typo="Typo.body2" Class="mud-text-secondary my-8" Align="Align.Center">
+                            Noch keine Gäste erfasst.
+                        </MudText>
+                    }
+                </MudCardContent>
+            </MudCard>
+        </MudItem>
+
+        @* Donut: Budget nach Kategorien *@
+        <MudItem xs="12" md="4">
+            <MudCard Elevation="2" Class="rounded-lg h-100">
+                <MudCardContent>
+                    <MudText Typo="Typo.h6" GutterBottom="true">Budget nach Kategorien</MudText>
+                    @if (_budgetChartData.Length > 0)
+                    {
+                        <MudChart T="double" ChartType="ChartType.Donut" Width="100%" Height="220px"
+                                  InputData="@_budgetChartData" InputLabels="@_budgetChartLabels"
+                                  ChartOptions="@_donutOptions" />
+                    }
+                    else
+                    {
+                        <MudText Typo="Typo.body2" Class="mud-text-secondary my-8" Align="Align.Center">
+                            Noch keine Budget-Posten erfasst.
+                        </MudText>
+                    }
+                </MudCardContent>
+            </MudCard>
+        </MudItem>
+
+        @* Gesamtfortschritt To-Dos *@
+        <MudItem xs="12" md="4">
+            <MudCard Elevation="2" Class="rounded-lg h-100">
+                <MudCardContent>
+                    <MudText Typo="Typo.h6" GutterBottom="true">Gesamtfortschritt</MudText>
+                    <div class="d-flex flex-column justify-center" style="min-height:220px">
+                        <MudText Typo="Typo.h3" Align="Align.Center" Color="Color.Primary">@_tasksDonePercent&#37;</MudText>
+                        <MudText Typo="Typo.body2" Align="Align.Center" Class="mud-text-secondary mb-3">
+                            der Aufgaben erledigt
+                        </MudText>
+                        <MudProgressLinear Color="Color.Primary" Value="@_tasksDonePercent" Size="Size.Large" Rounded="true" Class="mb-4" />
+                        <div class="d-flex justify-space-around">
+                            <div class="text-center">
+                                <MudText Typo="Typo.h6" Color="Color.Success">@_tasksDone</MudText>
+                                <MudText Typo="Typo.caption" Class="mud-text-secondary">Erledigt</MudText>
+                            </div>
+                            <div class="text-center">
+                                <MudText Typo="Typo.h6" Color="Color.Warning">@_tasksOpen</MudText>
+                                <MudText Typo="Typo.caption" Class="mud-text-secondary">Offen</MudText>
+                            </div>
+                        </div>
+                    </div>
+                </MudCardContent>
+            </MudCard>
+        </MudItem>
+
+        @* ---------- Nächste anstehende Aufgaben ---------- *@
+        <MudItem xs="12" md="7">
+            <MudCard Elevation="2" Class="rounded-lg h-100">
+                <MudCardContent>
+                    <div class="d-flex align-center justify-space-between mb-2">
+                        <MudText Typo="Typo.h6">Nächste anstehende Aufgaben</MudText>
+                        <MudButton Variant="Variant.Text" Color="Color.Primary" Size="Size.Small"
+                                   EndIcon="@Icons.Material.Filled.ArrowForward"
+                                   OnClick="@(() => Navigation.NavigateTo("/aufgaben"))">Alle</MudButton>
+                    </div>
+                    @if (_upcomingTasks.Count > 0)
+                    {
+                        <MudList T="TaskItem" Dense="true">
+                            @foreach (var task in _upcomingTasks)
+                            {
+                                <MudListItem T="TaskItem" Icon="@Icons.Material.Filled.RadioButtonUnchecked"
+                                             IconColor="@PriorityColor(task.Priority)">
+                                    <div class="d-flex align-center justify-space-between">
+                                        <div>
+                                            <MudText Typo="Typo.body1">@task.Title</MudText>
+                                            @if (task.DueDate is not null)
+                                            {
+                                                <MudText Typo="Typo.caption" Class="mud-text-secondary">
+                                                    Fällig: @task.DueDate.Value.ToString("dd. MMM yyyy", _culture)
+                                                </MudText>
+                                            }
+                                        </div>
+                                        <MudChip T="string" Size="Size.Small" Color="@PriorityColor(task.Priority)" Variant="Variant.Outlined">
+                                            @task.Priority
+                                        </MudChip>
+                                    </div>
+                                </MudListItem>
+                            }
+                        </MudList>
+                    }
+                    else
+                    {
+                        <MudText Typo="Typo.body2" Class="mud-text-secondary my-6" Align="Align.Center">
+                            Keine offenen Aufgaben – alles erledigt! 🎉
+                        </MudText>
+                    }
+                </MudCardContent>
+            </MudCard>
+        </MudItem>
+
+        @* ---------- Schnellzugriff ---------- *@
+        <MudItem xs="12" md="5">
+            <MudCard Elevation="2" Class="rounded-lg h-100">
+                <MudCardContent>
+                    <MudText Typo="Typo.h6" GutterBottom="true">Schnellzugriff</MudText>
+                    <MudGrid Spacing="2">
+                        <MudItem xs="6">
+                            <MudButton FullWidth="true" Variant="Variant.Outlined" Color="Color.Primary"
+                                       StartIcon="@Icons.Material.Filled.People" Class="py-3"
+                                       OnClick="@(() => Navigation.NavigateTo("/gaeste"))">Gäste</MudButton>
+                        </MudItem>
+                        <MudItem xs="6">
+                            <MudButton FullWidth="true" Variant="Variant.Outlined" Color="Color.Primary"
+                                       StartIcon="@Icons.Material.Filled.EuroSymbol" Class="py-3"
+                                       OnClick="@(() => Navigation.NavigateTo("/budget"))">Budget</MudButton>
+                        </MudItem>
+                        <MudItem xs="6">
+                            <MudButton FullWidth="true" Variant="Variant.Outlined" Color="Color.Primary"
+                                       StartIcon="@Icons.Material.Filled.Checklist" Class="py-3"
+                                       OnClick="@(() => Navigation.NavigateTo("/aufgaben"))">Aufgaben</MudButton>
+                        </MudItem>
+                        <MudItem xs="6">
+                            <MudButton FullWidth="true" Variant="Variant.Outlined" Color="Color.Primary"
+                                       StartIcon="@Icons.Material.Filled.Timeline" Class="py-3"
+                                       OnClick="@(() => Navigation.NavigateTo("/zeitplan"))">Zeitplan</MudButton>
+                        </MudItem>
+                        <MudItem xs="6">
+                            <MudButton FullWidth="true" Variant="Variant.Outlined" Color="Color.Primary"
+                                       StartIcon="@Icons.Material.Filled.TableRestaurant" Class="py-3"
+                                       OnClick="@(() => Navigation.NavigateTo("/sitzordnung"))">Sitzordnung</MudButton>
+                        </MudItem>
+                        <MudItem xs="6">
+                            <MudButton FullWidth="true" Variant="Variant.Outlined" Color="Color.Primary"
+                                       StartIcon="@Icons.Material.Filled.Settings" Class="py-3"
+                                       OnClick="@(() => Navigation.NavigateTo("/einstellungen"))">Einstellungen</MudButton>
+                        </MudItem>
+                    </MudGrid>
+                </MudCardContent>
+            </MudCard>
+        </MudItem>
+
+    </MudGrid>
+}
+
+@code {
+    private bool _loading = true;
+
+    // Kultur für deutsche Datums-/Zahlenformatierung.
+    private readonly CultureInfo _culture = new("de-DE");
+
+    // Einstellungen & Countdown
+    private WeddingSettings _settings = new();
+    private int _daysUntilWedding;
+
+    // Gibt an, ob ein Titelbild gesetzt ist (für das Hero-Banner).
+    private bool _hasCover => !string.IsNullOrWhiteSpace(_settings.CoverImageUrl);
+
+    // Gibt an, ob mindestens ein dezentes Impressionen-Bild gesetzt ist.
+    private bool _hasGallery => !string.IsNullOrWhiteSpace(_settings.GalleryImage1Url)
+        || !string.IsNullOrWhiteSpace(_settings.GalleryImage2Url);
+
+    // CSS-Klassen des Hero-Banners (mit optionalem Titelbild-Modus).
+    private string _bannerClass => _hasCover
+        ? "rounded-xl wedplan-banner wedplan-banner--cover"
+        : "rounded-xl wedplan-banner";
+
+    // Gäste-Statistik
+    private int _guestCount;
+    private int _guestsAccepted;
+    private int _guestsDeclined;
+    private int _guestsPending;
+
+    // Budget-Statistik
+    private decimal _budgetPlanned;
+    private decimal _budgetSpent;
+    private decimal _budgetRemaining;
+    private double _budgetUsedPercent;
+
+    // Aufgaben-Statistik
+    private int _taskCount;
+    private int _tasksDone;
+    private int _tasksOpen;
+    private int _tasksDonePercent;
+    private List<TaskItem> _upcomingTasks = new();
+
+    // Zeitplan
+    private ScheduleItem? _nextScheduleItem;
+
+    // Chart-Daten
+    private double[] _guestChartData = Array.Empty<double>();
+    private string[] _guestChartLabels = Array.Empty<string>();
+    private double[] _budgetChartData = Array.Empty<double>();
+    private string[] _budgetChartLabels = Array.Empty<string>();
+
+    // Chart-Optionen in Farben der Hochzeits-Palette.
+    private readonly ChartOptions _donutOptions = new()
+    {
+        ChartPalette = new[] { "#C9A227", "#E8B4B8", "#B98A8D", "#7BA17D", "#8AA0B5", "#D9A441", "#C15B5B" }
+    };
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        // LocalStorage ist erst nach dem ersten (interaktiven) Render verfügbar.
+        if (firstRender)
+        {
+            await LoadDashboardAsync();
+            _loading = false;
+            Realtime.OnSettingsChanged += OnRealtimeSettingsChanged;
+            StateHasChanged();
+        }
+    }
+
+    // Reagiert auf Live-Änderungen (z.B. neues Titelbild) durch andere Mitglieder.
+    private async void OnRealtimeSettingsChanged()
+    {
+        SettingsService.InvalidateCache();
+        _settings = await SettingsService.GetAsync();
+        await InvokeAsync(StateHasChanged);
+    }
+
+    public void Dispose()
+    {
+        Realtime.OnSettingsChanged -= OnRealtimeSettingsChanged;
+    }
+
+    // Lädt alle Live-Daten aus den Services und bereitet die Statistiken auf.
+    private async Task LoadDashboardAsync()
+    {
+        _settings = await SettingsService.GetAsync();
+        if (_settings.WeddingDate is not null)
+        {
+            _daysUntilWedding = (_settings.WeddingDate.Value.Date - DateTime.Today).Days;
+        }
+
+        // ---- Gäste ----
+        var guests = await GuestService.GetAllAsync();
+        _guestCount = guests.Count;
+        _guestsAccepted = guests.Count(g => g.Rsvp == RsvpStatus.Zugesagt);
+        _guestsDeclined = guests.Count(g => g.Rsvp == RsvpStatus.Abgesagt);
+        // "Vielleicht" wird als ausstehend gezählt.
+        _guestsPending = guests.Count(g => g.Rsvp is RsvpStatus.Ausstehend or RsvpStatus.Vielleicht);
+
+        if (_guestCount > 0)
+        {
+            _guestChartData = new double[] { _guestsAccepted, _guestsDeclined, _guestsPending };
+            _guestChartLabels = new[] { "Zugesagt", "Abgesagt", "Ausstehend" };
+        }
+
+        // ---- Budget ----
+        var budgetItems = await BudgetService.GetAllAsync();
+        // Geplant: Summe der geschätzten Kosten (Fallback auf tatsächliche Kosten, falls keine Schätzung).
+        _budgetPlanned = budgetItems.Sum(b => b.EstimatedCost > 0 ? b.EstimatedCost : b.ActualCost);
+        _budgetSpent = budgetItems.Sum(b => b.PaidAmount);
+        _budgetRemaining = _budgetPlanned - _budgetSpent;
+        _budgetUsedPercent = _budgetPlanned > 0 ? (double)(_budgetSpent / _budgetPlanned) * 100d : 0d;
+
+        // Budget nach Kategorien (geplante Kosten) für das Donut-Chart.
+        var byCategory = budgetItems
+            .GroupBy(b => string.IsNullOrWhiteSpace(b.Category) ? "Allgemein" : b.Category)
+            .Select(g => new { Category = g.Key, Sum = g.Sum(b => b.EstimatedCost > 0 ? b.EstimatedCost : b.ActualCost) })
+            .Where(x => x.Sum > 0)
+            .OrderByDescending(x => x.Sum)
+            .ToList();
+
+        if (byCategory.Count > 0)
+        {
+            _budgetChartData = byCategory.Select(x => (double)x.Sum).ToArray();
+            _budgetChartLabels = byCategory.Select(x => x.Category).ToArray();
+        }
+
+        // ---- Aufgaben ----
+        var tasks = await TaskService.GetAllAsync();
+        _taskCount = tasks.Count;
+        _tasksDone = tasks.Count(t => t.Status == WedPlan.Models.TaskStatus.Erledigt);
+        _tasksOpen = _taskCount - _tasksDone;
+        _tasksDonePercent = _taskCount > 0 ? (int)Math.Round((double)_tasksDone / _taskCount * 100d) : 0;
+
+        // Die 5 nächsten offenen Aufgaben (nach Fälligkeit, dann Priorität).
+        _upcomingTasks = tasks
+            .Where(t => t.Status != WedPlan.Models.TaskStatus.Erledigt)
+            .OrderBy(t => t.DueDate ?? DateTime.MaxValue)
+            .ThenByDescending(t => t.Priority)
+            .Take(5)
+            .ToList();
+
+        // ---- Zeitplan ----
+        var schedule = await ScheduleService.GetAllAsync();
+        _nextScheduleItem = schedule
+            .Where(s => s.StartTime >= DateTime.Now)
+            .OrderBy(s => s.StartTime)
+            .FirstOrDefault();
+    }
+
+    // Formatiert einen Betrag in der eingestellten Währung.
+    private string FormatCurrency(decimal amount)
+        => string.Format(_culture, "{0:N0} {1}", amount, _settings.Currency);
+
+    // Ordnet einer Aufgaben-Priorität eine Theme-Farbe zu.
+    private Color PriorityColor(TaskPriority priority) => priority switch
+    {
+        TaskPriority.Hoch => Color.Error,
+        TaskPriority.Mittel => Color.Warning,
+        _ => Color.Default
+    };
+}

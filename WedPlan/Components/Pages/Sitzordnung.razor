@@ -1,0 +1,501 @@
+﻿@page "/sitzordnung"
+@using WedPlan.Models
+@using WedPlan.Services
+@using WedPlan.Components.Dialogs
+@inject ISeatingService SeatingService
+@inject IGuestService GuestService
+@inject IDialogService DialogService
+@inject PermissionService Permissions
+@inject ISnackbar Snackbar
+
+<PageTitle>Sitzordnung – WedPlan</PageTitle>
+
+@* ═══ Kopfzeile ═══ *@
+<div class="seating-header">
+    <div>
+        <MudText Typo="Typo.h4" Class="seating-title">
+            <MudIcon Icon="@Icons.Material.Filled.TableRestaurant" Class="me-2" />
+            Sitzordnung
+        </MudText>
+        <MudText Typo="Typo.body2" Class="mud-text-secondary">
+            Verwalte Tische und weise deinen Gästen Plätze zu.
+        </MudText>
+    </div>
+    @if (_canEdit)
+    {
+        <MudButton StartIcon="@Icons.Material.Filled.Add"
+                   Variant="Variant.Filled"
+                   Color="Color.Primary"
+                   OnClick="OpenAddTableDialog"
+                   Class="add-table-btn">
+            Tisch anlegen
+        </MudButton>
+    }
+</div>
+
+@* ═══ Statistik-Karten ═══ *@
+@if (_loaded)
+{
+    <MudGrid Class="mb-4" Spacing="3">
+        <MudItem xs="6" sm="3">
+            <MudPaper Class="stat-card" Elevation="2">
+                <MudIcon Icon="@Icons.Material.Filled.TableRestaurant" Color="Color.Primary" />
+                <MudText Typo="Typo.h5">@_tables.Count</MudText>
+                <MudText Typo="Typo.caption" Class="mud-text-secondary">Tische</MudText>
+            </MudPaper>
+        </MudItem>
+        <MudItem xs="6" sm="3">
+            <MudPaper Class="stat-card" Elevation="2">
+                <MudIcon Icon="@Icons.Material.Filled.Chair" Color="Color.Secondary" />
+                <MudText Typo="Typo.h5">@_totalSeats</MudText>
+                <MudText Typo="Typo.caption" Class="mud-text-secondary">Plätze gesamt</MudText>
+            </MudPaper>
+        </MudItem>
+        <MudItem xs="6" sm="3">
+            <MudPaper Class="stat-card stat-card--ok" Elevation="2">
+                <MudIcon Icon="@Icons.Material.Filled.PersonPin" Color="Color.Success" />
+                <MudText Typo="Typo.h5">@_assignedGuests</MudText>
+                <MudText Typo="Typo.caption" Class="mud-text-secondary">Zugeordnet</MudText>
+            </MudPaper>
+        </MudItem>
+        <MudItem xs="6" sm="3">
+            <MudPaper Class="@($"stat-card {(_unassignedGuests > 0 ? "stat-card--warn" : "stat-card--ok")}")" Elevation="2">
+                <MudIcon Icon="@Icons.Material.Filled.PersonOff"
+                         Color="@(_unassignedGuests > 0 ? Color.Warning : Color.Success)" />
+                <MudText Typo="Typo.h5">@_unassignedGuests</MudText>
+                <MudText Typo="Typo.caption" Class="mud-text-secondary">Nicht zugeordnet</MudText>
+            </MudPaper>
+        </MudItem>
+    </MudGrid>
+
+    @* ═══ Hauptbereich: Nicht zugeordnete Gäste + Tischkarten ═══ *@
+    <MudGrid Spacing="3">
+
+        @* Linke Spalte: Nicht zugeordnete Gäste *@
+        <MudItem xs="12" md="4">
+            <MudPaper Class="unassigned-panel" Elevation="2">
+                <div class="panel-header">
+                    <MudIcon Icon="@Icons.Material.Filled.Group" Color="Color.Default" Size="Size.Small" />
+                    <MudText Typo="Typo.subtitle1" Class="ms-2">
+                        Nicht zugeordnete Gäste
+                        <MudChip T="string" Size="Size.Small" Color="Color.Default" Class="ms-1">
+                            @_unassignedGuestList.Count
+                        </MudChip>
+                    </MudText>
+                </div>
+
+                @if (_tables.Count == 0)
+                {
+                    <MudText Typo="Typo.body2" Class="mud-text-secondary pa-3">
+                        Lege zuerst einen Tisch an.
+                    </MudText>
+                }
+                else if (_unassignedGuestList.Count == 0)
+                {
+                    <div class="all-assigned">
+                        <MudIcon Icon="@Icons.Material.Filled.CheckCircle" Color="Color.Success" Size="Size.Large" />
+                        <MudText Typo="Typo.body2" Class="mt-2">Alle Gäste sind zugeordnet! 🎉</MudText>
+                    </div>
+                }
+                else
+                {
+                    <MudTextField @bind-Value="_guestSearch"
+                                  Placeholder="Gast suchen …"
+                                  Variant="Variant.Outlined"
+                                  Adornment="Adornment.Start"
+                                  AdornmentIcon="@Icons.Material.Filled.Search"
+                                  Margin="Margin.Dense"
+                                  Class="mx-2 mt-2 mb-1" />
+
+                    <div class="guest-list-scroll">
+                        @foreach (var guest in FilteredUnassigned)
+                        {
+                            <div class="guest-chip-row">
+                                <div class="guest-info">
+                                    <MudAvatar Color="Color.Secondary" Size="Size.Small">
+                                        @guest.Name[0]
+                                    </MudAvatar>
+                                    <div class="ms-2">
+                                        <MudText Typo="Typo.body2">@guest.Name</MudText>
+                                        @if (guest.PlusOnes > 0)
+                                        {
+                                            <MudText Typo="Typo.caption" Class="mud-text-secondary">
+                                                +@guest.PlusOnes Begleitung@(guest.PlusOnes > 1 ? "en" : "")
+                                            </MudText>
+                                        }
+                                    </div>
+                                </div>
+                                <MudSelect T="Guid?"
+                                           Value="null"
+                                           ValueChanged="@(id => AssignGuestAsync(guest, id))"
+                                           Placeholder="→ Tisch"
+                                           Variant="Variant.Outlined"
+                                           Margin="Margin.Dense"
+                                           Class="assign-select">
+                                    @foreach (var t in _tables)
+                                    {
+                                        var seats = t.OccupiedSeats(_allGuests);
+                                        var free  = t.Capacity - seats;
+                                        <MudSelectItem T="Guid?" Value="@((Guid?)t.Id)"
+                                                       Disabled="@(free < 1 + guest.PlusOnes)">
+                                            @t.Name (@free frei)
+                                        </MudSelectItem>
+                                    }
+                                </MudSelect>
+                            </div>
+                        }
+                    </div>
+                }
+            </MudPaper>
+        </MudItem>
+
+        @* Rechte Spalte: Tischkarten *@
+        <MudItem xs="12" md="8">
+            @if (_tables.Count == 0)
+            {
+                <MudPaper Class="empty-hint" Elevation="0">
+                    <MudIcon Icon="@Icons.Material.Filled.TableRestaurant" Size="Size.Large" Color="Color.Tertiary" />
+                    <MudText Typo="Typo.h6" Class="mt-3">Noch keine Tische angelegt</MudText>
+                    <MudText Typo="Typo.body2" Class="mud-text-secondary mt-1">
+                        Klicke oben auf 'Tisch anlegen", um loszulegen.
+                    </MudText>
+                </MudPaper>
+            }
+            else
+            {
+                <MudGrid Spacing="3">
+                    @foreach (var table in _tables)
+                    {
+                        var occupied = table.OccupiedSeats(_allGuests);
+                        var free     = table.Capacity - occupied;
+                        var overbook = table.IsOverbooked(_allGuests);
+                        var assigned = _allGuests.Where(g => table.AssignedGuestIds.Contains(g.Id)).ToList();
+
+                        <MudItem xs="12" sm="6" lg="4">
+                            <MudCard Class="@($"table-card {(overbook ? "table-card--overbooked" : "")} table-shape--{table.Shape.ToString().ToLower()}")"
+                                     Elevation="3">
+                                <MudCardHeader>
+                                    <CardHeaderAvatar>
+                                        <MudAvatar Color="@(overbook ? Color.Error : Color.Primary)"
+                                                   Variant="Variant.Filled">
+                                            @ShapeIcon(table.Shape)
+                                        </MudAvatar>
+                                    </CardHeaderAvatar>
+                                    <CardHeaderContent>
+                                        <MudText Typo="Typo.subtitle1" Class="fw-bold">@table.Name</MudText>
+                                        <MudText Typo="Typo.caption" Color="@(overbook ? Color.Error : Color.Default)">
+                                            @occupied / @table.Capacity Plätze
+                                            @(overbook ? " ⚠️ Überbelegt!" : free == 0 ? " ✅ Voll" : $" · {free} frei")
+                                        </MudText>
+                                    </CardHeaderContent>
+                                    <CardHeaderActions>
+                                        @if (_canEdit)
+                                        {
+                                            <MudMenu Icon="@Icons.Material.Filled.MoreVert" Size="Size.Small">
+                                                <MudMenuItem Icon="@Icons.Material.Filled.Edit"
+                                                             OnClick="@(() => OpenEditTableDialog(table))">
+                                                    Bearbeiten
+                                                </MudMenuItem>
+                                                <MudMenuItem Icon="@Icons.Material.Filled.Delete"
+                                                             OnClick="@(() => DeleteTableAsync(table))">
+                                                    Löschen
+                                                </MudMenuItem>
+                                            </MudMenu>
+                                        }
+                                    </CardHeaderActions>
+                                </MudCardHeader>
+
+                                @* Kapazitäts-Balken *@
+                                <div class="capacity-bar-wrap px-4 pb-2">
+                                    <MudProgressLinear Value="@Math.Min((double)occupied / table.Capacity * 100, 100)"
+                                                       Color="@(overbook ? Color.Error : occupied == table.Capacity ? Color.Success : Color.Primary)"
+                                                       Rounded="true"
+                                                       Size="Size.Small" />
+                                </div>
+
+                                <MudCardContent Class="pt-0">
+                                    @if (assigned.Count == 0)
+                                    {
+                                        <MudText Typo="Typo.body2" Class="mud-text-secondary text-center py-2">
+                                            Noch keine Gäste zugeordnet.
+                                        </MudText>
+                                    }
+                                    else
+                                    {
+                                        <div class="assigned-guest-list">
+                                            @foreach (var g in assigned)
+                                            {
+                                                <div class="assigned-guest-row">
+                                                    <MudAvatar Color="Color.Secondary" Size="Size.Small" Class="me-2">
+                                                        @g.Name[0]
+                                                    </MudAvatar>
+                                                    <span class="flex-grow-1">
+                                                        @g.Name
+                                                        @if (g.PlusOnes > 0)
+                                                        {
+                                                            <MudChip T="string" Size="Size.Small" Class="ms-1" Color="Color.Default">
+                                                                +@g.PlusOnes
+                                                            </MudChip>
+                                                        }
+                                                    </span>
+                                                    @if (_canEdit)
+                                                    {
+                                                        <MudIconButton Icon="@Icons.Material.Filled.PersonRemove"
+                                                                       Size="Size.Small"
+                                                                       Color="Color.Error"
+                                                                       Title="Zuweisung aufheben"
+                                                                       OnClick="@(() => UnassignGuestAsync(g, table))" />
+                                                    }
+                                                </div>
+                                            }
+                                        </div>
+                                    }
+
+                                    @* Gast zu diesem Tisch hinzufügen *@
+                                    @if (_canEdit && _unassignedGuestList.Count > 0)
+                                    {
+                                        <MudSelect T="Guid?"
+                                                   Value="null"
+                                                   ValueChanged="@(id => AssignGuestToTableAsync(id, table))"
+                                                   Placeholder="+ Gast hinzufügen"
+                                                   Variant="Variant.Outlined"
+                                                   Margin="Margin.Dense"
+                                                   FullWidth="true"
+                                                   Class="mt-2">
+                                            @foreach (var ug in _unassignedGuestList)
+                                            {
+                                                var needed = 1 + ug.PlusOnes;
+                                                <MudSelectItem T="Guid?" Value="@((Guid?)ug.Id)"
+                                                               Disabled="@(free < needed)">
+                                                    @ug.Name @(ug.PlusOnes > 0 ? $"(+{ug.PlusOnes})" : "")
+                                                </MudSelectItem>
+                                            }
+                                        </MudSelect>
+                                    }
+                                </MudCardContent>
+                            </MudCard>
+                        </MudItem>
+                    }
+                </MudGrid>
+            }
+        </MudItem>
+    </MudGrid>
+}
+else
+{
+    <div class="d-flex justify-center mt-10">
+        <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
+    </div>
+}
+
+@code {
+    private List<SeatingTable> _tables     = new();
+    private List<Guest>        _allGuests  = new();
+    private bool               _loaded;
+    private bool               _canEdit;
+    private string             _guestSearch = string.Empty;
+
+    // ── Abgeleitete Statistiken ────────────────────────────────────────────────
+    private int TotalSeats       => _tables.Sum(t => t.Capacity);
+    private int AssignedGuests   => _allGuests.Count(g => g.TableId.HasValue);
+    private int UnassignedGuests => _allGuests.Count(g => !g.TableId.HasValue);
+
+    private int _totalSeats      => TotalSeats;
+    private int _assignedGuests  => AssignedGuests;
+    private int _unassignedGuests => UnassignedGuests;
+
+    private List<Guest> _unassignedGuestList
+        => _allGuests.Where(g => !g.TableId.HasValue).ToList();
+
+    private IEnumerable<Guest> FilteredUnassigned
+        => string.IsNullOrWhiteSpace(_guestSearch)
+            ? _unassignedGuestList
+            : _unassignedGuestList.Where(g =>
+                g.Name.Contains(_guestSearch, StringComparison.OrdinalIgnoreCase));
+
+    // ── Lifecycle ──────────────────────────────────────────────────────────────
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+        await Permissions.EnsureLoadedAsync();
+        _canEdit = Permissions.CanEdit(WeddingPages.Seating);
+        await LoadDataAsync();
+        _loaded = true;
+        StateHasChanged();
+    }
+
+    private async Task LoadDataAsync()
+    {
+        _tables    = await SeatingService.GetAllAsync();
+        _allGuests = await GuestService.GetAllAsync();
+        await ReconcileAsync();
+    }
+
+    /// <summary>
+    /// Tabellen sind die kanonische Quelle für Zuordnungen.
+    /// Guest.TableId wird entsprechend angeglichen.
+    /// </summary>
+    private async Task ReconcileAsync()
+    {
+        var allGuestIds = _allGuests.Select(g => g.Id).ToHashSet();
+
+        // Verwaiste Guest-Ids aus Tabellen entfernen
+        foreach (var table in _tables)
+        {
+            var orphans = table.AssignedGuestIds.Where(id => !allGuestIds.Contains(id)).ToList();
+            if (orphans.Count > 0)
+            {
+                foreach (var o in orphans) table.AssignedGuestIds.Remove(o);
+                await SeatingService.UpdateAsync(table);
+            }
+        }
+
+        // Guest.TableId an Tabellen angleichen
+        foreach (var guest in _allGuests)
+        {
+            var correctTable = _tables.FirstOrDefault(t => t.AssignedGuestIds.Contains(guest.Id));
+            if (guest.TableId != correctTable?.Id)
+            {
+                guest.TableId = correctTable?.Id;
+                await GuestService.UpdateAsync(guest);
+            }
+        }
+    }
+
+    // ── Tisch CRUD ─────────────────────────────────────────────────────────────
+    private async Task OpenAddTableDialog()
+    {
+        var model      = new SeatingTable();
+        var parameters = new DialogParameters<TableDialog>
+        {
+            { x => x.Model,  model },
+            { x => x.IsEdit, false }
+        };
+        var options = new DialogOptions { CloseOnEscapeKey = true, MaxWidth = MaxWidth.Small, FullWidth = true };
+        var dialog  = await DialogService.ShowAsync<TableDialog>("Tisch anlegen", parameters, options);
+        var result  = await dialog.Result;
+        if (result is { Canceled: false, Data: SeatingTable created })
+        {
+            await SeatingService.AddAsync(created);
+            _tables = await SeatingService.GetAllAsync();
+            Snackbar.Add($"Tisch '{created.Name}' angelegt.", Severity.Success);
+            StateHasChanged();
+        }
+    }
+
+    private async Task OpenEditTableDialog(SeatingTable table)
+    {
+        var clone = new SeatingTable
+        {
+            Id               = table.Id,
+            Name             = table.Name,
+            Shape            = table.Shape,
+            Capacity         = table.Capacity,
+            AssignedGuestIds = table.AssignedGuestIds.ToList()
+        };
+        var parameters = new DialogParameters<TableDialog>
+        {
+            { x => x.Model,  clone },
+            { x => x.IsEdit, true }
+        };
+        var options = new DialogOptions { CloseOnEscapeKey = true, MaxWidth = MaxWidth.Small, FullWidth = true };
+        var dialog  = await DialogService.ShowAsync<TableDialog>("Tisch bearbeiten", parameters, options);
+        var result  = await dialog.Result;
+        if (result is { Canceled: false, Data: SeatingTable updated })
+        {
+            await SeatingService.UpdateAsync(updated);
+            _tables = await SeatingService.GetAllAsync();
+            Snackbar.Add($"Tisch '{updated.Name}' gespeichert.", Severity.Success);
+            StateHasChanged();
+        }
+    }
+
+    private async Task DeleteTableAsync(SeatingTable table)
+    {
+        var confirm = await DialogService.ShowMessageBoxAsync(new MessageBoxOptions
+        {
+            Title      = "Tisch löschen?",
+            Message    = $"Tisch '{table.Name}' loeschen? Alle Gaestezuordnungen werden aufgehoben.",
+            YesText    = "Löschen",
+            CancelText = "Abbrechen"
+        });
+        if (confirm != true) return;
+
+        foreach (var gid in table.AssignedGuestIds)
+        {
+            var g = _allGuests.FirstOrDefault(x => x.Id == gid);
+            if (g is not null) { g.TableId = null; await GuestService.UpdateAsync(g); }
+        }
+
+        await SeatingService.DeleteAsync(table.Id);
+        _tables = await SeatingService.GetAllAsync();
+        Snackbar.Add($"Tisch '{table.Name}' geloescht.", Severity.Info);
+        StateHasChanged();
+    }
+
+    // ── Gast zuweisen / entfernen ──────────────────────────────────────────────
+
+    // Aufruf aus der linken Gastspalte
+    private Task AssignGuestAsync(Guest guest, Guid? tableId)
+        => tableId.HasValue ? DoAssignAsync(guest, tableId.Value) : Task.CompletedTask;
+
+    // Aufruf aus dem Tisch-Dropdown (unten auf Tischkarte)
+    private Task AssignGuestToTableAsync(Guid? guestId, SeatingTable table)
+    {
+        if (!guestId.HasValue) return Task.CompletedTask;
+        var guest = _allGuests.FirstOrDefault(g => g.Id == guestId.Value);
+        return guest is not null ? DoAssignAsync(guest, table.Id) : Task.CompletedTask;
+    }
+
+    private async Task DoAssignAsync(Guest guest, Guid tableId)
+    {
+        var target = _tables.FirstOrDefault(t => t.Id == tableId);
+        if (target is null) return;
+
+        var needed = 1 + guest.PlusOnes;
+        var free   = target.Capacity - target.OccupiedSeats(_allGuests);
+        if (free < needed)
+        {
+            Snackbar.Add($"Nicht genug Platz am Tisch '{target.Name}'.", Severity.Warning);
+            return;
+        }
+
+        // Vorherigen Tisch aktualisieren
+        if (guest.TableId.HasValue)
+        {
+            var prev = _tables.FirstOrDefault(t => t.Id == guest.TableId);
+            if (prev is not null)
+            {
+                prev.AssignedGuestIds.Remove(guest.Id);
+                await SeatingService.UpdateAsync(prev);
+            }
+        }
+
+        target.AssignedGuestIds.Add(guest.Id);
+        guest.TableId = target.Id;
+        await SeatingService.UpdateAsync(target);
+        await GuestService.UpdateAsync(guest);
+
+        Snackbar.Add($"{guest.Name} → {target.Name}", Severity.Success);
+        StateHasChanged();
+    }
+
+    private async Task UnassignGuestAsync(Guest guest, SeatingTable table)
+    {
+        table.AssignedGuestIds.Remove(guest.Id);
+        guest.TableId = null;
+        await SeatingService.UpdateAsync(table);
+        await GuestService.UpdateAsync(guest);
+        Snackbar.Add($"{guest.Name} wurde von {table.Name} entfernt.", Severity.Info);
+        StateHasChanged();
+    }
+
+    // ── Hilfsmethoden ─────────────────────────────────────────────────────────
+    private static string ShapeIcon(TableShape s) => s switch
+    {
+        TableShape.Rund  => "●",
+        TableShape.Eckig => "■",
+        TableShape.Lang  => "▬",
+        _                => "?"
+    };
+}

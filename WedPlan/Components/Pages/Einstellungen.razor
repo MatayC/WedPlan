@@ -1,0 +1,588 @@
+@page "/einstellungen"
+@using MudBlazor
+@using WedPlan.Models
+@using WedPlan.Services
+@inject ISettingsService SettingsService
+@inject IWeddingService WeddingService
+@inject IStorageService StorageService
+@inject WeddingContext WeddingContext
+@inject PermissionService Permissions
+@inject NavigationManager Navigation
+@inject IDialogService DialogService
+@inject IJSRuntime JS
+@inject ISnackbar Snackbar
+
+<PageTitle>Einstellungen – WedPlan</PageTitle>
+
+<MudText Typo="Typo.h3" GutterBottom="true">Einstellungen</MudText>
+
+@if (_loading)
+{
+    @* Ladezustand während die Einstellungen aus dem LocalStorage geladen werden. *@
+    <MudProgressLinear Color="Color.Primary" Indeterminate="true" Class="my-6" />
+}
+else
+{
+    @* --- Hochzeitsprojekt teilen (Einladungs-Code / Link) --- *@
+    <MudCard Elevation="2" Class="rounded-lg mt-4">
+        <MudCardContent>
+            <MudText Typo="Typo.h6" GutterBottom="true">
+                <MudIcon Icon="@Icons.Material.Filled.Share" Size="Size.Small" Class="mr-1" />
+                Einladung teilen
+            </MudText>
+            <MudText Typo="Typo.body2" Class="mud-text-secondary mb-3">
+                Teile diesen Code oder Link mit deiner*deinem Partner*in, damit ihr gemeinsam plant.
+            </MudText>
+
+            @if (!string.IsNullOrEmpty(WeddingContext.InviteCode))
+            {
+                <MudTextField Value="WeddingContext.InviteCode" Label="Einladungs-Code" ReadOnly="true"
+                              Variant="Variant.Outlined" Class="mb-3"
+                              Adornment="Adornment.End" AdornmentIcon="@Icons.Material.Filled.ContentCopy"
+                              OnAdornmentClick="CopyCodeAsync" />
+
+                <MudTextField Value="@InviteLink" Label="Einladungs-Link" ReadOnly="true"
+                              Variant="Variant.Outlined" Class="mb-3"
+                              Adornment="Adornment.End" AdornmentIcon="@Icons.Material.Filled.ContentCopy"
+                              OnAdornmentClick="CopyLinkAsync" />
+
+                <MudButton Variant="Variant.Outlined" Color="Color.Primary"
+                           StartIcon="@Icons.Material.Filled.ContentCopy" OnClick="CopyLinkAsync">
+                    Link kopieren
+                </MudButton>
+            }
+        </MudCardContent>
+    </MudCard>
+
+    @* --- Mitglieder der aktiven Hochzeit (inkl. Rechteverwaltung für Admins) --- *@
+    <MudCard Elevation="2" Class="rounded-lg mt-4">
+        <MudCardContent>
+            <MudText Typo="Typo.h6" GutterBottom="true">
+                <MudIcon Icon="@Icons.Material.Filled.Group" Size="Size.Small" Class="mr-1" />
+                Mitglieder & Berechtigungen
+            </MudText>
+
+            @if (Permissions.IsAdmin)
+            {
+                <MudText Typo="Typo.body2" Class="mud-text-secondary mb-3">
+                    Als Admin kannst du je Mitglied festlegen, was es bearbeiten darf. Änderungen werden sofort gespeichert.
+                </MudText>
+            }
+            else
+            {
+                <MudText Typo="Typo.body2" Class="mud-text-secondary mb-3">
+                    Nur Admins können Berechtigungen ändern.
+                </MudText>
+            }
+
+            @if (_members.Count == 0)
+            {
+                <MudText Typo="Typo.body2" Class="mud-text-secondary">Noch keine Mitglieder geladen.</MudText>
+            }
+            else
+            {
+                @foreach (var m in _members)
+                {
+                    <MudPaper Elevation="0" Outlined="true" Class="pa-3 mb-3 rounded-lg">
+                        <div class="d-flex align-center justify-space-between mb-2">
+                            <div>
+                                <MudText Typo="Typo.body1">
+                                    <MudIcon Icon="@Icons.Material.Filled.Person" Size="Size.Small" Class="mr-1" />
+                                    @m.Username
+                                    @if (m.Permissions.IsAdmin)
+                                    {
+                                        <MudChip T="string" Size="Size.Small" Color="Color.Primary" Variant="Variant.Filled" Class="ml-2">Admin</MudChip>
+                                    }
+                                </MudText>
+                                @if (!string.IsNullOrEmpty(m.Email))
+                                {
+                                    <MudText Typo="Typo.caption" Class="mud-text-secondary">@m.Email</MudText>
+                                }
+                            </div>
+                        </div>
+
+                        @if (Permissions.IsAdmin)
+                        {
+                            <MudSwitch T="bool" Color="Color.Primary" Label="Admin (voller Zugriff)"
+                                       Value="m.Permissions.IsAdmin"
+                                       ValueChanged="@(v => OnAdminChanged(m, v))" />
+
+                            <MudDivider Class="my-2" />
+                            <MudText Typo="Typo.caption" Class="mud-text-secondary">Bearbeiten erlauben je Seite:</MudText>
+                            <div class="d-flex flex-wrap">
+                                <MudCheckBox T="bool" Dense="true" Label="Gäste" Disabled="m.Permissions.IsAdmin"
+                                             Value="m.Permissions.CanEditGuests"
+                                             ValueChanged="@(v => OnPageChanged(m, WeddingPages.Guests, v))" />
+                                <MudCheckBox T="bool" Dense="true" Label="Budget" Disabled="m.Permissions.IsAdmin"
+                                             Value="m.Permissions.CanEditBudget"
+                                             ValueChanged="@(v => OnPageChanged(m, WeddingPages.Budget, v))" />
+                                <MudCheckBox T="bool" Dense="true" Label="Aufgaben" Disabled="m.Permissions.IsAdmin"
+                                             Value="m.Permissions.CanEditTasks"
+                                             ValueChanged="@(v => OnPageChanged(m, WeddingPages.Tasks, v))" />
+                                <MudCheckBox T="bool" Dense="true" Label="Zeitplan" Disabled="m.Permissions.IsAdmin"
+                                             Value="m.Permissions.CanEditSchedule"
+                                             ValueChanged="@(v => OnPageChanged(m, WeddingPages.Schedule, v))" />
+                                <MudCheckBox T="bool" Dense="true" Label="Sitzordnung" Disabled="m.Permissions.IsAdmin"
+                                             Value="m.Permissions.CanEditSeating"
+                                             ValueChanged="@(v => OnPageChanged(m, WeddingPages.Seating, v))" />
+                                <MudCheckBox T="bool" Dense="true" Label="Wohnung" Disabled="m.Permissions.IsAdmin"
+                                             Value="m.Permissions.CanEditApartment"
+                                             ValueChanged="@(v => OnPageChanged(m, WeddingPages.Apartment, v))" />
+                                <MudCheckBox T="bool" Dense="true" Label="Einstellungen" Disabled="m.Permissions.IsAdmin"
+                                             Value="m.Permissions.CanEditSettings"
+                                             ValueChanged="@(v => OnPageChanged(m, WeddingPages.Settings, v))" />
+                            </div>
+                            <MudCheckBox T="bool" Dense="true" Color="Color.Error" Label="Darf Projekt löschen" Disabled="m.Permissions.IsAdmin"
+                                         Value="m.Permissions.CanDeleteProject"
+                                         ValueChanged="@(v => OnDeleteRightChanged(m, v))" />
+                        }
+                        else
+                        {
+                            <MudText Typo="Typo.caption" Class="mud-text-secondary">
+                                @(m.Permissions.IsAdmin ? "Admin – voller Zugriff" : PermissionSummary(m))
+                            </MudText>
+                        }
+                    </MudPaper>
+                }
+            }
+        </MudCardContent>
+    </MudCard>
+
+    @* --- Meine Hochzeiten (Projekte): Wechseln, Neu anlegen/Beitreten --- *@
+    <MudCard Elevation="2" Class="rounded-lg mt-4">
+        <MudCardContent>
+            <MudText Typo="Typo.h6" GutterBottom="true">
+                <MudIcon Icon="@Icons.Material.Filled.Favorite" Size="Size.Small" Class="mr-1" />
+                Meine Hochzeiten
+            </MudText>
+            <MudList T="string" Dense="true">
+                @foreach (var w in _weddings)
+                {
+                    <MudListItem T="string" OnClick="@(() => SwitchAsync(w.Id))"
+                                 Icon="@(w.Id == WeddingContext.WeddingId ? Icons.Material.Filled.CheckCircle : Icons.Material.Filled.RadioButtonUnchecked)">
+                        <div class="d-flex align-center justify-space-between" style="width:100%">
+                            <MudText Typo="Typo.body1">@w.Name</MudText>
+                            @if (w.Id != WeddingContext.WeddingId || Permissions.CanDeleteProject)
+                            {
+                                <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" Size="Size.Small"
+                                               OnClick="@(() => DeleteAsync(w))" />
+                            }
+                        </div>
+                    </MudListItem>
+                }
+            </MudList>
+            <MudButton Variant="Variant.Outlined" Color="Color.Primary" Class="mt-2"
+                       StartIcon="@Icons.Material.Filled.Add" OnClick="GoToOnboarding">
+                Weiteres Projekt anlegen / beitreten
+            </MudButton>
+        </MudCardContent>
+    </MudCard>
+
+    @* --- Bilder des Projekts (für alle Mitglieder sichtbar) --- *@
+    <MudCard Elevation="2" Class="rounded-lg mt-4">
+        <MudCardContent>
+            <MudText Typo="Typo.h6" GutterBottom="true">
+                <MudIcon Icon="@Icons.Material.Filled.PhotoLibrary" Size="Size.Small" Class="mr-1" />
+                Bilder
+            </MudText>
+            <MudText Typo="Typo.body2" Class="mud-text-secondary mb-3">
+                Lade bis zu drei schöne Bilder hoch – das Titelbild erscheint groß auf dem Dashboard,
+                die beiden weiteren Bilder werden dezent im Bereich „Impressionen" eingebunden.
+            </MudText>
+
+            <MudGrid Spacing="3">
+                @foreach (var slotInfo in ImageSlots)
+                {
+                    var slot = slotInfo.Slot;
+                    var url = GetSlotUrl(slot);
+                    var busy = _uploadingSlot == slot;
+                    <MudItem xs="12" sm="4">
+                        <MudText Typo="Typo.subtitle2" Class="mb-1">@slotInfo.Label</MudText>
+                        <div class="cover-upload-preview mb-2">
+                            @if (!string.IsNullOrWhiteSpace(url))
+                            {
+                                <MudImage Src="@url" Alt="@slotInfo.Label" ObjectFit="ObjectFit.Cover"
+                                          Class="cover-upload-img rounded-lg" Fluid="true" />
+                            }
+                            else
+                            {
+                                <div class="cover-upload-placeholder rounded-lg">
+                                    <MudIcon Icon="@Icons.Material.Filled.AddPhotoAlternate" Size="Size.Large" />
+                                    <MudText Typo="Typo.body2" Class="mud-text-secondary mt-1">Noch kein Bild</MudText>
+                                </div>
+                            }
+                        </div>
+
+                        @if (_canEditSettings)
+                        {
+                            <div class="d-flex flex-wrap gap-2 align-center">
+                                <MudFileUpload T="IBrowserFile" Accept="image/png, image/jpeg, image/webp"
+                                               FilesChanged="@(f => UploadImageAsync(f, slot))" MaximumFileCount="1">
+                                    <ActivatorContent>
+                                        <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Small"
+                                                   StartIcon="@Icons.Material.Filled.CloudUpload"
+                                                   Disabled="busy">
+                                            @if (busy)
+                                            {
+                                                <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+                                                <span>Lädt…</span>
+                                            }
+                                            else
+                                            {
+                                                <span>@(string.IsNullOrWhiteSpace(url) ? "Hochladen" : "Ersetzen")</span>
+                                            }
+                                        </MudButton>
+                                    </ActivatorContent>
+                                </MudFileUpload>
+
+                                @if (!string.IsNullOrWhiteSpace(url))
+                                {
+                                    <MudButton Variant="Variant.Outlined" Color="Color.Error" Size="Size.Small"
+                                               StartIcon="@Icons.Material.Filled.Delete"
+                                               Disabled="busy"
+                                               OnClick="@(() => RemoveImageAsync(slot))">
+                                        Entfernen
+                                    </MudButton>
+                                }
+                            </div>
+                        }
+                    </MudItem>
+                }
+            </MudGrid>
+
+            @if (_canEditSettings)
+            {
+                <MudText Typo="Typo.caption" Class="mud-text-secondary d-block mt-3">
+                    JPG, PNG oder WebP · max. 5 MB pro Bild
+                </MudText>
+            }
+            else
+            {
+                <MudText Typo="Typo.body2" Class="mud-text-secondary mt-2">
+                    Nur Mitglieder mit Bearbeitungsrecht für Einstellungen können die Bilder ändern.
+                </MudText>
+            }
+        </MudCardContent>
+    </MudCard>
+
+    @* --- Einstellungen der aktiven Hochzeit --- *@
+    <MudCard Elevation="2" Class="rounded-lg mt-4">
+        <MudCardContent>
+            <MudForm>
+                <MudText Typo="Typo.h6" GutterBottom="true">Brautpaar</MudText>
+                <MudTextField @bind-Value="_settings.Partner1Name" Label="Name Partner 1" Variant="Variant.Outlined" Class="mb-3" />
+                <MudTextField @bind-Value="_settings.Partner2Name" Label="Name Partner 2" Variant="Variant.Outlined" Class="mb-3" />
+
+                <MudDivider Class="my-4" />
+
+                <MudText Typo="Typo.h6" GutterBottom="true">Details</MudText>
+                <MudDatePicker @bind-Date="_settings.WeddingDate" Label="Hochzeitsdatum" Variant="Variant.Outlined" Class="mb-3" />
+                <MudTextField @bind-Value="_settings.Location" Label="Location" Variant="Variant.Outlined" Class="mb-3" />
+                <MudNumericField @bind-Value="_settings.TotalBudget" Label="Gesamtbudget" Variant="Variant.Outlined" Min="0" Class="mb-3" />
+                <MudSelect @bind-Value="_settings.Currency" Label="Währung" Variant="Variant.Outlined" Class="mb-3">
+                    <MudSelectItem Value="@("EUR")">Euro (€)</MudSelectItem>
+                    <MudSelectItem Value="@("CHF")">Schweizer Franken (CHF)</MudSelectItem>
+                    <MudSelectItem Value="@("USD")">US-Dollar ($)</MudSelectItem>
+                    <MudSelectItem Value="@("GBP")">Britisches Pfund (£)</MudSelectItem>
+                </MudSelect>
+
+                <MudDivider Class="my-4" />
+
+                <MudText Typo="Typo.h6" GutterBottom="true">Darstellung</MudText>
+                <MudSwitch @bind-Value="_settings.IsDarkMode" Color="Color.Primary" Label="Dark Mode" />
+            </MudForm>
+        </MudCardContent>
+        <MudCardActions Class="pa-4">
+            <MudButton Variant="Variant.Filled"
+                       Color="Color.Primary"
+                       StartIcon="@Icons.Material.Filled.Save"
+                       OnClick="SaveAsync"
+                       Disabled="_saving">
+                @if (_saving)
+                {
+                    <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+                }
+                Speichern
+            </MudButton>
+        </MudCardActions>
+    </MudCard>
+}
+
+@code {
+    private bool _loading = true;
+    private bool _saving;
+    private ImageSlot? _uploadingSlot;
+    private bool _canEditSettings;
+    private WeddingSettings _settings = new();
+    private List<WeddingMember> _members = new();
+    private List<WeddingSummary> _weddings = new();
+
+    private string InviteLink =>
+        string.IsNullOrEmpty(WeddingContext.InviteCode)
+            ? string.Empty
+            : Navigation.ToAbsoluteUri($"/onboarding?code={WeddingContext.InviteCode}").ToString();
+
+    private static readonly (ImageSlot Slot, string Label)[] ImageSlots =
+    {
+        (ImageSlot.Cover, "Titelbild"),
+        (ImageSlot.Gallery1, "Impression 1"),
+        (ImageSlot.Gallery2, "Impression 2")
+    };
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        // LocalStorage ist erst nach dem ersten (interaktiven) Render verfügbar.
+        if (firstRender)
+        {
+            await Permissions.EnsureLoadedAsync();
+            _canEditSettings = Permissions.CanEdit(WeddingPages.Settings);
+            _settings = await SettingsService.GetAsync();
+            _members = await WeddingService.GetMembersAsync();
+            _weddings = await WeddingService.GetMyWeddingsAsync();
+            _loading = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task UploadImageAsync(IBrowserFile? file, ImageSlot slot)
+    {
+        if (file is null || WeddingContext.WeddingId is null)
+        {
+            return;
+        }
+
+        if (file.Size > StorageService.MaxCoverImageBytes)
+        {
+            Snackbar.Add("Das Bild ist zu groß (max. 5 MB).", Severity.Error);
+            return;
+        }
+
+        if (!StorageService.AllowedImageContentTypes.Contains(file.ContentType))
+        {
+            Snackbar.Add("Nur JPG-, PNG- oder WebP-Bilder sind erlaubt.", Severity.Error);
+            return;
+        }
+
+        _uploadingSlot = slot;
+        try
+        {
+            using var stream = file.OpenReadStream(StorageService.MaxCoverImageBytes);
+            using var ms = new MemoryStream();
+            await stream.CopyToAsync(ms);
+            var bytes = ms.ToArray();
+
+            var ext = System.IO.Path.GetExtension(file.Name);
+            var (success, url, error) = await StorageService.UploadImageAsync(
+                WeddingContext.WeddingId.Value, slot, bytes, file.ContentType, ext);
+
+            if (success && !string.IsNullOrEmpty(url))
+            {
+                SetSlotUrl(slot, url);
+                await SettingsService.SaveAsync(_settings);
+                Snackbar.Add("Bild aktualisiert.", Severity.Success);
+            }
+            else
+            {
+                Snackbar.Add(error ?? "Upload fehlgeschlagen.", Severity.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Upload fehlgeschlagen: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _uploadingSlot = null;
+        }
+    }
+
+    private async Task RemoveImageAsync(ImageSlot slot)
+    {
+        if (WeddingContext.WeddingId is null)
+        {
+            return;
+        }
+
+        _uploadingSlot = slot;
+        try
+        {
+            await StorageService.DeleteImageAsync(WeddingContext.WeddingId.Value, slot);
+            SetSlotUrl(slot, null);
+            await SettingsService.SaveAsync(_settings);
+            Snackbar.Add("Bild entfernt.", Severity.Success);
+        }
+        finally
+        {
+            _uploadingSlot = null;
+        }
+    }
+
+    private string? GetSlotUrl(ImageSlot slot) => slot switch
+    {
+        ImageSlot.Cover => _settings.CoverImageUrl,
+        ImageSlot.Gallery1 => _settings.GalleryImage1Url,
+        ImageSlot.Gallery2 => _settings.GalleryImage2Url,
+        _ => null
+    };
+
+    private void SetSlotUrl(ImageSlot slot, string? url)
+    {
+        switch (slot)
+        {
+            case ImageSlot.Cover: _settings.CoverImageUrl = url; break;
+            case ImageSlot.Gallery1: _settings.GalleryImage1Url = url; break;
+            case ImageSlot.Gallery2: _settings.GalleryImage2Url = url; break;
+        }
+    }
+
+    private async Task SaveAsync()
+    {
+        _saving = true;
+        await SettingsService.SaveAsync(_settings);
+        _saving = false;
+
+        // Feedback per Snackbar geben.
+        Snackbar.Add("Einstellungen gespeichert.", Severity.Success);
+    }
+
+    private async Task CopyCodeAsync()
+    {
+        await JS.InvokeVoidAsync("navigator.clipboard.writeText", WeddingContext.InviteCode);
+        Snackbar.Add("Code kopiert.", Severity.Success);
+    }
+
+    private async Task CopyLinkAsync()
+    {
+        await JS.InvokeVoidAsync("navigator.clipboard.writeText", InviteLink);
+        Snackbar.Add("Link kopiert.", Severity.Success);
+    }
+
+    private async Task SwitchAsync(Guid weddingId)
+    {
+        if (weddingId == WeddingContext.WeddingId)
+        {
+            return;
+        }
+
+        if (await WeddingService.SwitchWeddingAsync(weddingId))
+        {
+            Snackbar.Add("Projekt gewechselt.", Severity.Success);
+            Navigation.NavigateTo("/", forceLoad: true);
+        }
+        else
+        {
+            Snackbar.Add("Wechsel fehlgeschlagen.", Severity.Error);
+        }
+    }
+
+    private async Task DeleteAsync(WeddingSummary wedding)
+    {
+        var options = new MessageBoxOptions
+        {
+            Title = "Hochzeit löschen",
+            Message = $"„{wedding.Name}\" wird mit allen Gästen, Budget, Aufgaben und Daten unwiderruflich gelöscht.",
+            YesText = "Löschen",
+            CancelText = "Abbrechen"
+        };
+
+        var confirmed = await DialogService.ShowMessageBoxAsync(options);
+        if (confirmed != true)
+        {
+            return;
+        }
+
+        var (success, error) = await WeddingService.DeleteWeddingAsync(wedding.Id);
+        if (success)
+        {
+            Snackbar.Add("Hochzeit gelöscht.", Severity.Success);
+
+            // Keine Hochzeit mehr aktiv? -> Onboarding, sonst neu laden.
+            if (!WeddingContext.HasWedding)
+            {
+                Navigation.NavigateTo("/onboarding", forceLoad: true);
+            }
+            else
+            {
+                Navigation.NavigateTo("/", forceLoad: true);
+            }
+        }
+        else
+        {
+            Snackbar.Add(error ?? "Löschen fehlgeschlagen.", Severity.Error);
+        }
+    }
+
+    // new=1 signalisiert dem Onboarding, die Auto-Weiterleitung zu überspringen,
+    // damit man ein weiteres Projekt anlegen/beitreten kann, obwohl schon eines aktiv ist.
+    private void GoToOnboarding() => Navigation.NavigateTo("/onboarding?new=1", forceLoad: true);
+
+    // --- Rechteverwaltung: jede Änderung wird sofort gespeichert ---
+
+    private async Task OnAdminChanged(WeddingMember member, bool isAdmin)
+    {
+        member.Permissions.IsAdmin = isAdmin;
+        if (isAdmin)
+        {
+            // Admin hat implizit alle Rechte.
+            member.Permissions.CanEditGuests = true;
+            member.Permissions.CanEditBudget = true;
+            member.Permissions.CanEditTasks = true;
+            member.Permissions.CanEditSchedule = true;
+            member.Permissions.CanEditSeating = true;
+            member.Permissions.CanEditSettings = true;
+            member.Permissions.CanEditApartment = true;
+            member.Permissions.CanDeleteProject = true;
+        }
+        await PersistAsync(member);
+    }
+
+    private async Task OnPageChanged(WeddingMember member, string page, bool value)
+    {
+        switch (page)
+        {
+            case WeddingPages.Guests: member.Permissions.CanEditGuests = value; break;
+            case WeddingPages.Budget: member.Permissions.CanEditBudget = value; break;
+            case WeddingPages.Tasks: member.Permissions.CanEditTasks = value; break;
+            case WeddingPages.Schedule: member.Permissions.CanEditSchedule = value; break;
+            case WeddingPages.Seating: member.Permissions.CanEditSeating = value; break;
+            case WeddingPages.Settings: member.Permissions.CanEditSettings = value; break;
+            case WeddingPages.Apartment: member.Permissions.CanEditApartment = value; break;
+        }
+        await PersistAsync(member);
+    }
+
+    private async Task OnDeleteRightChanged(WeddingMember member, bool value)
+    {
+        member.Permissions.CanDeleteProject = value;
+        await PersistAsync(member);
+    }
+
+    private async Task PersistAsync(WeddingMember member)
+    {
+        var (success, error) = await WeddingService.UpdateMemberPermissionsAsync(member.UserId, member.Permissions);
+        if (success)
+        {
+            Snackbar.Add("Berechtigungen aktualisiert.", Severity.Success);
+            // Falls sich die eigenen Rechte geändert haben, neu laden.
+            await Permissions.EnsureLoadedAsync(force: true);
+        }
+        else
+        {
+            Snackbar.Add(error ?? "Speichern fehlgeschlagen.", Severity.Error);
+        }
+        StateHasChanged();
+    }
+
+    private static string PermissionSummary(WeddingMember m)
+    {
+        var pages = new List<string>();
+        if (m.Permissions.CanEditGuests) pages.Add("Gäste");
+        if (m.Permissions.CanEditBudget) pages.Add("Budget");
+        if (m.Permissions.CanEditTasks) pages.Add("Aufgaben");
+        if (m.Permissions.CanEditSchedule) pages.Add("Zeitplan");
+        if (m.Permissions.CanEditSeating) pages.Add("Sitzordnung");
+        if (m.Permissions.CanEditSettings) pages.Add("Einstellungen");
+        if (m.Permissions.CanEditApartment) pages.Add("Wohnung");
+        return pages.Count == 0 ? "Nur Lesezugriff" : "Darf bearbeiten: " + string.Join(", ", pages);
+    }
+}

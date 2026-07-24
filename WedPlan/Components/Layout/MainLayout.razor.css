@@ -1,0 +1,73 @@
+/* ═══════════════════════════════════════════════════════════════
+   MainLayout – Scoped Styles
+   Safe-area-aware, PWA-ready, mobile-first
+   ═══════════════════════════════════════════════════════════════ */
+
+/* ── Blazor Error UI ──────────────────────────────────────────── */
+#blazor-error-ui {
+    color-scheme: light only;
+    background: lightyellow;
+    bottom: 0;
+    box-shadow: 0 -1px 2px rgba(0, 0, 0, 0.2);
+    box-sizing: border-box;
+    display: none;
+    left: 0;
+    padding: 0.6rem 1.25rem 0.7rem 1.25rem;
+    position: fixed;
+    width: 100%;
+    z-index: 1000;
+}
+
+#blazor-error-ui .dismiss {
+    cursor: pointer;
+    position: absolute;
+    right: 0.75rem;
+    top: 0.5rem;
+}
+
+/* ── Bottom Navigation: Safe Area für iOS Home-Leiste ─────────── */
+/*
+   iPhone ohne Home-Button (X, 11, 12, 13, 14, 15 …):
+   Die Home-Leiste am unteren Rand ist ca. 34pt.
+   env(safe-area-inset-bottom) gibt diesen Wert automatisch zurück.
+   Damit ist die MudBottomNavigation nie hinter der Home-Leiste.
+*/
+::deep .mud-bottom-nav-safe {
+    padding-bottom: env(safe-area-inset-bottom, 0px) !important;
+    height: calc(56px + env(safe-area-inset-bottom, 0px)) !important;
+}
+
+/* ── Haupt-Inhalt: Abstand unterhalb der Bottom-Navigation ─────── */
+/*
+   pb-safe stellt sicher, dass der Body-Inhalt nicht hinter der
+   Bottom Navigation (56px) + iOS Home-Leiste verschwindet.
+*/
+::deep .pb-safe {
+    padding-bottom: calc(72px + env(safe-area-inset-bottom, 0px)) !important;
+}
+
+/* ── AppBar: Platz für iOS Statusleiste ───────────────────────── */
+/*
+   Mit apple-mobile-web-app-status-bar-style=black-translucent
+   überlappt die App die iOS Statusleiste. Die MudAppBar muss
+   dann oben Platz lassen.
+*/
+@media all and (display-mode: standalone) {
+    ::deep .mud-appbar {
+        padding-top: env(safe-area-inset-top, 0px) !important;
+        min-height: calc(64px + env(safe-area-inset-top, 0px)) !important;
+    }
+}
+
+/* ── Drawer: Abstand zur Bottom-Nav auf kleinen Screens ─────────── */
+::deep .mud-drawer--fixed {
+    padding-bottom: calc(56px + env(safe-area-inset-bottom, 0px));
+}
+
+/* ── AppBar Titel-Schrift ─────────────────────────────────────── */
+::deep .mud-appbar .mud-typography-h5 {
+    font-family: 'Cormorant Garamond', Georgia, serif;
+    font-weight: 600;
+    letter-spacing: 0.03em;
+}
+

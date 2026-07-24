@@ -1,0 +1,447 @@
+@page "/gaeste"
+@using MudBlazor
+@using WedPlan.Models
+@using WedPlan.Services
+@using WedPlan.Components.Dialogs
+@inject IGuestService GuestService
+@inject IDialogService DialogService
+@inject PermissionService Permissions
+@inject ISnackbar Snackbar
+
+<PageTitle>Gästeliste – WedPlan</PageTitle>
+
+<div class="d-flex align-center justify-space-between flex-wrap mb-4">
+    <MudText Typo="Typo.h3">Gästeliste</MudText>
+    @if (_canEdit)
+    {
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.PersonAdd"
+                   OnClick="@(() => OpenDialogAsync(null))">Gast hinzufügen</MudButton>
+    }
+</div>
+
+@if (_loading)
+{
+    <MudProgressLinear Color="Color.Primary" Indeterminate="true" Class="my-8" />
+}
+else
+{
+    @* ---------- Zusammenfassung: Stat-Karten ---------- *@
+    <MudGrid Spacing="3" Class="mb-2">
+        <MudItem xs="6" md="3">
+            <MudCard Elevation="2" Class="rounded-lg">
+                <MudCardContent>
+                    <div class="d-flex align-center">
+                        <MudIcon Icon="@Icons.Material.Filled.Groups" Color="Color.Primary" Class="mr-2" />
+                        <div>
+                            <MudText Typo="Typo.h5">@_totalWithCompanions</MudText>
+                            <MudText Typo="Typo.caption" Class="mud-text-secondary">Personen gesamt</MudText>
+                        </div>
+                    </div>
+                </MudCardContent>
+            </MudCard>
+        </MudItem>
+        <MudItem xs="6" md="3">
+            <MudCard Elevation="2" Class="rounded-lg">
+                <MudCardContent>
+                    <div class="d-flex align-center">
+                        <MudIcon Icon="@Icons.Material.Filled.CheckCircle" Color="Color.Success" Class="mr-2" />
+                        <div>
+                            <MudText Typo="Typo.h5">@_countAccepted</MudText>
+                            <MudText Typo="Typo.caption" Class="mud-text-secondary">Zugesagt</MudText>
+                        </div>
+                    </div>
+                </MudCardContent>
+            </MudCard>
+        </MudItem>
+        <MudItem xs="6" md="3">
+            <MudCard Elevation="2" Class="rounded-lg">
+                <MudCardContent>
+                    <div class="d-flex align-center">
+                        <MudIcon Icon="@Icons.Material.Filled.Cancel" Color="Color.Error" Class="mr-2" />
+                        <div>
+                            <MudText Typo="Typo.h5">@_countDeclined</MudText>
+                            <MudText Typo="Typo.caption" Class="mud-text-secondary">Abgesagt</MudText>
+                        </div>
+                    </div>
+                </MudCardContent>
+            </MudCard>
+        </MudItem>
+        <MudItem xs="6" md="3">
+            <MudCard Elevation="2" Class="rounded-lg">
+                <MudCardContent>
+                    <div class="d-flex align-center">
+                        <MudIcon Icon="@Icons.Material.Filled.HelpOutline" Color="Color.Warning" Class="mr-2" />
+                        <div>
+                            <MudText Typo="Typo.h5">@_countPending</MudText>
+                            <MudText Typo="Typo.caption" Class="mud-text-secondary">Ausstehend</MudText>
+                        </div>
+                    </div>
+                </MudCardContent>
+            </MudCard>
+        </MudItem>
+    </MudGrid>
+
+    @* ---------- Filter- und Steuerleiste ---------- *@
+    <MudCard Elevation="1" Class="rounded-lg my-4">
+        <MudCardContent>
+            <MudGrid Spacing="2" Class="align-center">
+                <MudItem xs="12" md="5">
+                    <MudTextField Value="_searchTerm" ValueChanged="@((string v) => OnSearchChanged(v))" Immediate="true"
+                                  Placeholder="Nach Namen suchen …"
+                                  Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search"
+                                  Variant="Variant.Outlined" Margin="Margin.Dense" Clearable="true" />
+                </MudItem>
+                <MudItem xs="12" md="7" Class="d-flex align-center justify-md-end flex-wrap gap-2">
+                    @* RSVP-Filter-Chips *@
+                    <MudChipSet T="RsvpStatus?" SelectedValue="_rsvpFilter" SelectedValueChanged="OnRsvpFilterChanged"
+                                SelectionMode="SelectionMode.SingleSelection" Variant="Variant.Filled">
+                        <MudChip T="RsvpStatus?" Value="@((RsvpStatus?)null)" Default="true">Alle</MudChip>
+                        <MudChip T="RsvpStatus?" Value="@((RsvpStatus?)RsvpStatus.Zugesagt)" Color="Color.Success">Zugesagt</MudChip>
+                        <MudChip T="RsvpStatus?" Value="@((RsvpStatus?)RsvpStatus.Abgesagt)" Color="Color.Error">Abgesagt</MudChip>
+                        <MudChip T="RsvpStatus?" Value="@((RsvpStatus?)RsvpStatus.Ausstehend)" Color="Color.Warning">Ausstehend</MudChip>
+                    </MudChipSet>
+                </MudItem>
+                <MudItem xs="12" Class="d-flex align-center">
+                    @* Umschalter für die Gruppierung *@
+                    <MudText Typo="Typo.body2" Class="mr-3 mud-text-secondary">Gruppieren nach:</MudText>
+                    <MudToggleGroup T="GroupMode" Value="_groupMode" ValueChanged="OnGroupModeChanged"
+                                    Color="Color.Primary" Size="Size.Small" CheckMark="true">
+                        <MudToggleItem Value="GroupMode.Group" Text="Gruppe" />
+                        <MudToggleItem Value="GroupMode.Rsvp" Text="RSVP-Status" />
+                    </MudToggleGroup>
+                </MudItem>
+            </MudGrid>
+        </MudCardContent>
+    </MudCard>
+
+    @* ---------- Gruppierte Gästeliste ---------- *@
+    @if (_filteredGuests.Count == 0)
+    {
+        <MudCard Elevation="2" Class="rounded-lg mt-4">
+            <MudCardContent Class="d-flex flex-column align-center py-8">
+                <MudIcon Icon="@Icons.Material.Filled.PersonOff" Color="Color.Secondary" Size="Size.Large" />
+                <MudText Typo="Typo.h6" Class="mt-3">Keine Gäste gefunden.</MudText>
+                <MudText Typo="Typo.body2" Class="mud-text-secondary">
+                    @(_allGuests.Count == 0 ? "Füge deinen ersten Gast hinzu." : "Passe Suche oder Filter an.")
+                </MudText>
+            </MudCardContent>
+        </MudCard>
+    }
+    else
+    {
+        <MudExpansionPanels MultiExpansion="true" Elevation="2" Class="rounded-lg">
+            @foreach (var group in _groupedGuests)
+            {
+                <MudExpansionPanel Expanded="true">
+                    <TitleContent>
+                        <div class="d-flex align-center">
+                            <MudIcon Icon="@Icons.Material.Filled.Folder" Color="Color.Primary" Class="mr-2" />
+                            <MudText Typo="Typo.subtitle1"><b>@group.Key</b></MudText>
+                            <MudChip T="string" Size="Size.Small" Class="ml-2" Variant="Variant.Text">@group.Count() Gäste</MudChip>
+                        </div>
+                    </TitleContent>
+                    <ChildContent>
+                        @* Desktop: Tabelle *@
+                        <MudHidden Breakpoint="Breakpoint.SmAndDown">
+                            <MudTable Items="group" Dense="true" Hover="true" Elevation="0" Breakpoint="Breakpoint.None">
+                                <HeaderContent>
+                                    <MudTh>Name</MudTh>
+                                    <MudTh>Kontakt</MudTh>
+                                    <MudTh Style="text-align:center">Begleitung</MudTh>
+                                    <MudTh>Menü</MudTh>
+                                    <MudTh>RSVP</MudTh>
+                                    <MudTh Style="text-align:right">Aktionen</MudTh>
+                                </HeaderContent>
+                                <RowTemplate>
+                                    <MudTd DataLabel="Name">
+                                        <MudText Typo="Typo.body1"><b>@context.Name</b></MudText>
+                                        @if (!string.IsNullOrWhiteSpace(context.Allergies))
+                                        {
+                                            <MudTooltip Text="@context.Allergies">
+                                                <MudText Typo="Typo.caption" Color="Color.Warning">
+                                                    <MudIcon Icon="@Icons.Material.Filled.Warning" Size="Size.Small" /> Allergien
+                                                </MudText>
+                                            </MudTooltip>
+                                        }
+                                    </MudTd>
+                                    <MudTd DataLabel="Kontakt">
+                                        @if (!string.IsNullOrWhiteSpace(context.Email))
+                                        {
+                                            <MudText Typo="Typo.caption" Class="d-block">@context.Email</MudText>
+                                        }
+                                        @if (!string.IsNullOrWhiteSpace(context.Phone))
+                                        {
+                                            <MudText Typo="Typo.caption" Class="d-block">@context.Phone</MudText>
+                                        }
+                                    </MudTd>
+                                    <MudTd DataLabel="Begleitung" Style="text-align:center">
+                                        @if (context.PlusOnes > 0)
+                                        {
+                                            <MudChip T="string" Size="Size.Small" Color="Color.Info" Variant="Variant.Text">+@context.PlusOnes</MudChip>
+                                        }
+                                        else
+                                        {
+                                            <MudText Typo="Typo.caption" Class="mud-text-secondary">–</MudText>
+                                        }
+                                    </MudTd>
+                                    <MudTd DataLabel="Menü">
+                                        <MudText Typo="Typo.caption">@context.Menu</MudText>
+                                    </MudTd>
+                                    <MudTd DataLabel="RSVP">
+                                        @RsvpMenu(context)
+                                    </MudTd>
+                                    <MudTd DataLabel="Aktionen" Style="text-align:right">
+                                        @if (_canEdit)
+                                        {
+                                            <MudIconButton Icon="@Icons.Material.Filled.Edit" Size="Size.Small" Color="Color.Primary"
+                                                           OnClick="@(() => OpenDialogAsync(context))" aria-label="Bearbeiten" />
+                                            <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small" Color="Color.Error"
+                                                           OnClick="@(() => DeleteAsync(context))" aria-label="Löschen" />
+                                        }
+                                    </MudTd>
+                                </RowTemplate>
+                            </MudTable>
+                        </MudHidden>
+
+                        @* Mobile: Karten-Liste *@
+                        <MudHidden Breakpoint="Breakpoint.MdAndUp">
+                            @foreach (var guest in group)
+                            {
+                                <MudPaper Elevation="0" Class="pa-3 mb-2 rounded-lg wedplan-guest-card">
+                                    <div class="d-flex justify-space-between align-start">
+                                        <div>
+                                            <MudText Typo="Typo.body1"><b>@guest.Name</b></MudText>
+                                            @if (guest.PlusOnes > 0)
+                                            {
+                                                <MudText Typo="Typo.caption" Color="Color.Info">+@guest.PlusOnes Begleitung</MudText>
+                                            }
+                                        </div>
+                                        <div>
+                                            @if (_canEdit)
+                                            {
+                                                <MudIconButton Icon="@Icons.Material.Filled.Edit" Size="Size.Small" Color="Color.Primary"
+                                                               OnClick="@(() => OpenDialogAsync(guest))" aria-label="Bearbeiten" />
+                                                <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small" Color="Color.Error"
+                                                               OnClick="@(() => DeleteAsync(guest))" aria-label="Löschen" />
+                                            }
+                                        </div>
+                                    </div>
+                                    @if (!string.IsNullOrWhiteSpace(guest.Email) || !string.IsNullOrWhiteSpace(guest.Phone))
+                                    {
+                                        <MudText Typo="Typo.caption" Class="mud-text-secondary d-block mt-1">
+                                            @guest.Email @(string.IsNullOrWhiteSpace(guest.Phone) ? "" : "· " + guest.Phone)
+                                        </MudText>
+                                    }
+                                    <div class="d-flex align-center justify-space-between mt-2">
+                                        <MudText Typo="Typo.caption" Class="mud-text-secondary">@guest.Menu</MudText>
+                                        @RsvpMenu(guest)
+                                    </div>
+                                </MudPaper>
+                            }
+                        </MudHidden>
+                    </ChildContent>
+                </MudExpansionPanel>
+            }
+        </MudExpansionPanels>
+    }
+}
+
+@code {
+    // Gruppierungsmodus für die Anzeige.
+    private enum GroupMode { Group, Rsvp }
+
+    private bool _loading = true;
+    private bool _canEdit;
+
+    private List<Guest> _allGuests = new();
+    private List<Guest> _filteredGuests = new();
+    private List<IGrouping<string, Guest>> _groupedGuests = new();
+
+    // Filter-/Ansichtszustand
+    private string _searchTerm = string.Empty;
+    private RsvpStatus? _rsvpFilter;
+    private GroupMode _groupMode = GroupMode.Group;
+
+    // Statistik
+    private int _totalWithCompanions;
+    private int _countAccepted;
+    private int _countDeclined;
+    private int _countPending;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await Permissions.EnsureLoadedAsync();
+            _canEdit = Permissions.CanEdit(WeddingPages.Guests);
+            await ReloadAsync();
+            _loading = false;
+            StateHasChanged();
+        }
+    }
+
+    // Lädt die Gäste aus dem Service neu und aktualisiert Statistik + Ansicht.
+    private async Task ReloadAsync()
+    {
+        _allGuests = await GuestService.GetAllAsync();
+        RecalculateStats();
+        ApplyFilters();
+    }
+
+    private void OnSearchChanged(string value)
+    {
+        _searchTerm = value ?? string.Empty;
+        ApplyFilters();
+    }
+
+    private void RecalculateStats()
+    {
+        // Personen gesamt = Gäste + deren Begleitpersonen.
+        _totalWithCompanions = _allGuests.Sum(g => 1 + g.PlusOnes);
+        _countAccepted = _allGuests.Count(g => g.Rsvp == RsvpStatus.Zugesagt);
+        _countDeclined = _allGuests.Count(g => g.Rsvp == RsvpStatus.Abgesagt);
+        _countPending = _allGuests.Count(g => g.Rsvp is RsvpStatus.Ausstehend or RsvpStatus.Vielleicht);
+    }
+
+    // Wendet Suche + RSVP-Filter an und gruppiert das Ergebnis.
+    private void ApplyFilters()
+    {
+        IEnumerable<Guest> query = _allGuests;
+
+        if (!string.IsNullOrWhiteSpace(_searchTerm))
+        {
+            query = query.Where(g => g.Name.Contains(_searchTerm, StringComparison.OrdinalIgnoreCase));
+        }
+
+        if (_rsvpFilter is not null)
+        {
+            query = query.Where(g => g.Rsvp == _rsvpFilter);
+        }
+
+        _filteredGuests = query.OrderBy(g => g.LastName).ThenBy(g => g.FirstName).ToList();
+
+        // Gruppierung je nach Modus.
+        _groupedGuests = _groupMode == GroupMode.Group
+            ? _filteredGuests.GroupBy(g => string.IsNullOrWhiteSpace(g.Group) ? "Sonstige" : g.Group)
+                             .OrderBy(g => g.Key).ToList()
+            : _filteredGuests.GroupBy(g => RsvpLabel(g.Rsvp)).OrderBy(g => g.Key).ToList();
+    }
+
+    private void OnRsvpFilterChanged(RsvpStatus? value)
+    {
+        _rsvpFilter = value;
+        ApplyFilters();
+    }
+
+    private void OnGroupModeChanged(GroupMode value)
+    {
+        _groupMode = value;
+        ApplyFilters();
+    }
+
+    // Öffnet den Formular-Dialog zum Hinzufügen (guest = null) oder Bearbeiten.
+    private async Task OpenDialogAsync(Guest? guest)
+    {
+        var parameters = new DialogParameters<GuestDialog>
+        {
+            { x => x.Guest, guest },
+            { x => x.ExistingGroups, _allGuests.Select(g => g.Group).Distinct().ToList() }
+        };
+
+        var options = new DialogOptions { MaxWidth = MaxWidth.Medium, FullWidth = true, CloseButton = true };
+        var dialog = await DialogService.ShowAsync<GuestDialog>(guest is null ? "Gast hinzufügen" : "Gast bearbeiten", parameters, options);
+        var result = await dialog.Result;
+
+        if (result is not null && !result.Canceled && result.Data is Guest edited)
+        {
+            if (guest is null)
+            {
+                await GuestService.AddAsync(edited);
+                Snackbar.Add($"{edited.Name} wurde hinzugefügt.", Severity.Success);
+            }
+            else
+            {
+                await GuestService.UpdateAsync(edited);
+                Snackbar.Add($"{edited.Name} wurde aktualisiert.", Severity.Success);
+            }
+            await ReloadAsync();
+        }
+    }
+
+    // Löschen mit Bestätigungsdialog und Snackbar-Feedback.
+    private async Task DeleteAsync(Guest guest)
+    {
+        var options = new MessageBoxOptions
+        {
+            Title = "Gast löschen",
+            Message = $"Möchtest du {guest.Name} wirklich aus der Gästeliste entfernen?",
+            YesText = "Löschen",
+            CancelText = "Abbrechen"
+        };
+
+        var confirmed = await DialogService.ShowMessageBoxAsync(options);
+
+        if (confirmed == true)
+        {
+            await GuestService.DeleteAsync(guest.Id);
+            Snackbar.Add($"{guest.Name} wurde gelöscht.", Severity.Info);
+            await ReloadAsync();
+        }
+    }
+
+    // Schnelle RSVP-Änderung direkt in der Liste über ein Menü mit farbigem Chip.
+    private RenderFragment RsvpMenu(Guest guest) => __builder =>
+    {
+        <MudMenu AnchorOrigin="Origin.BottomLeft">
+            <ActivatorContent>
+                <MudChip T="string" Color="@RsvpColor(guest.Rsvp)" Variant="Variant.Filled" Size="Size.Small"
+                         Icon="@Icons.Material.Filled.ArrowDropDown">
+                    @RsvpLabel(guest.Rsvp)
+                </MudChip>
+            </ActivatorContent>
+            <ChildContent>
+                <MudMenuItem OnClick="@(() => ChangeRsvpAsync(guest, RsvpStatus.Zugesagt))">
+                    <MudIcon Icon="@Icons.Material.Filled.CheckCircle" Color="Color.Success" Size="Size.Small" Class="mr-2" />Zugesagt
+                </MudMenuItem>
+                <MudMenuItem OnClick="@(() => ChangeRsvpAsync(guest, RsvpStatus.Abgesagt))">
+                    <MudIcon Icon="@Icons.Material.Filled.Cancel" Color="Color.Error" Size="Size.Small" Class="mr-2" />Abgesagt
+                </MudMenuItem>
+                <MudMenuItem OnClick="@(() => ChangeRsvpAsync(guest, RsvpStatus.Ausstehend))">
+                    <MudIcon Icon="@Icons.Material.Filled.HelpOutline" Color="Color.Warning" Size="Size.Small" Class="mr-2" />Ausstehend
+                </MudMenuItem>
+            </ChildContent>
+        </MudMenu>
+    };
+
+    // Ändert den RSVP-Status und speichert sofort.
+    private async Task ChangeRsvpAsync(Guest guest, RsvpStatus status)
+    {
+        if (guest.Rsvp == status)
+        {
+            return;
+        }
+
+        guest.Rsvp = status;
+        await GuestService.UpdateAsync(guest);
+        Snackbar.Add($"Status von {guest.Name}: {RsvpLabel(status)}.", Severity.Success);
+        RecalculateStats();
+        ApplyFilters();
+    }
+
+    // Farbe je RSVP-Status (grün/rot/gold).
+    private static Color RsvpColor(RsvpStatus status) => status switch
+    {
+        RsvpStatus.Zugesagt => Color.Success,
+        RsvpStatus.Abgesagt => Color.Error,
+        _ => Color.Warning
+    };
+
+    // Lesbares Label je RSVP-Status.
+    private static string RsvpLabel(RsvpStatus status) => status switch
+    {
+        RsvpStatus.Zugesagt => "Zugesagt",
+        RsvpStatus.Abgesagt => "Abgesagt",
+        RsvpStatus.Vielleicht => "Ausstehend",
+        _ => "Ausstehend"
+    };
+}

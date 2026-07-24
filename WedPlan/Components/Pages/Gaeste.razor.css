@@ -1,0 +1,5 @@
+/* Karten-Darstellung eines Gastes auf mobilen Geräten */
+.wedplan-guest-card {
+    background-color: var(--mud-palette-background-grey);
+    border: 1px solid var(--mud-palette-lines-default);
+}

@@ -1,0 +1,11 @@
+# Build-Artefakte und lokale Dateien aus dem Docker-Kontext ausschließen.
+**/bin/
+**/obj/
+**/.vs/
+**/.vscode/
+**/*.user
+**/appsettings.Development.json
+.git/
+.gitignore
+README.md
+**/node_modules/

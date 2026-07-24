@@ -1,0 +1,28 @@
+@inherits LayoutComponentBase
+@using WedPlan.Data
+
+@* Minimales Layout für die Login-Seite: nur Theme-Provider, keine Navigation. *@
+<MudThemeProvider Theme="WeddingTheme.Theme" />
+<MudPopoverProvider />
+<MudSnackbarProvider />
+
+<MudMainContent>
+    @Body
+</MudMainContent>
+
+<style>
+    .login-wrapper {
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 1.5rem;
+        padding-top: max(1.5rem, env(safe-area-inset-top));
+        padding-bottom: max(1.5rem, env(safe-area-inset-bottom));
+    }
+
+    .login-card {
+        width: 100%;
+        max-width: 420px;
+    }
+</style>

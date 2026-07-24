@@ -1,0 +1,114 @@
+/* Willkommens-Banner mit sanftem Blush-/Creme-Verlauf */
+.wedplan-banner {
+    background: linear-gradient(135deg, #F5EFE6 0%, #F3DEDF 50%, #E8B4B8 100%);
+    position: relative;
+    overflow: hidden;
+}
+
+/* Banner mit hochgeladenem Titelbild: Bild als Hintergrund + eleganter Verlauf-Overlay */
+.wedplan-banner--cover {
+    background-image:
+        linear-gradient(180deg, rgba(46, 42, 40, 0.15) 0%, rgba(46, 42, 40, 0.55) 100%),
+        var(--wedplan-cover);
+    background-size: cover;
+    background-position: center;
+    min-height: 320px;
+    display: flex;
+    align-items: center;
+}
+
+/* Auf dem Titelbild werden Texte hell dargestellt und leicht abgesetzt */
+.wedplan-banner--cover :deep(.mud-typography),
+.wedplan-banner--cover :deep(.mud-icon-root) {
+    color: #FFFDF9 !important;
+    text-shadow: 0 1px 8px rgba(0, 0, 0, 0.45);
+}
+
+.wedplan-banner--cover :deep(.wedplan-countdown) {
+    background-color: rgba(20, 16, 15, 0.42);
+    backdrop-filter: blur(6px);
+}
+
+.wedplan-banner--cover :deep(.wedplan-countdown-number),
+.wedplan-banner--cover :deep(.wedplan-amp) {
+    color: #F1D98C !important;
+}
+
+/* Namen des Brautpaars in eleganter Serif-Optik */
+.wedplan-couple {
+    font-family: "Cormorant Garamond", Georgia, serif;
+    font-weight: 700;
+    line-height: 1.1;
+    letter-spacing: 0.5px;
+}
+
+/* Das Und-Zeichen zwischen den Namen in Gold */
+.wedplan-amp {
+    color: #C9A227;
+    font-style: italic;
+}
+
+/* Countdown-Box mit halbtransparentem, weichem Hintergrund */
+.wedplan-countdown {
+    background-color: rgba(255, 255, 255, 0.65);
+    backdrop-filter: blur(4px);
+    min-width: 220px;
+    box-shadow: 0 8px 24px rgba(46, 42, 40, 0.12);
+}
+
+/* Große Countdown-Zahl */
+.wedplan-countdown-number {
+    font-family: "Cormorant Garamond", Georgia, serif;
+    font-weight: 700;
+    line-height: 1;
+}
+
+/* Text im Zentrum des Donut-Charts */
+.donut-inner-text {
+    font-family: "Poppins", sans-serif;
+    font-size: 0.9rem;
+    fill: var(--mud-palette-text-primary);
+}
+
+/* Lange Titel abschneiden statt umbrechen */
+.wedplan-truncate {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Karten auf volle Höhe der Grid-Zelle strecken (gleichmäßige Optik) */
+::deep .h-100 {
+    height: 100%;
+}
+
+/* Dezente Impressionen: schmale, abgerundete Bildkacheln nebeneinander */
+.wedplan-impressions {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 16px;
+}
+
+.wedplan-impression {
+    height: 160px;
+    background-size: cover;
+    background-position: center;
+    box-shadow: 0 4px 16px rgba(46, 42, 40, 0.10);
+    transition: transform 0.35s ease, box-shadow 0.35s ease;
+    position: relative;
+    overflow: hidden;
+}
+
+/* Sehr dezenter Verlauf-Overlay für ruhige, edle Optik */
+.wedplan-impression::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(180deg, rgba(46, 42, 40, 0) 55%, rgba(46, 42, 40, 0.18) 100%);
+}
+
+.wedplan-impression:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 8px 24px rgba(46, 42, 40, 0.18);
+}
+

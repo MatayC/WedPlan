@@ -1,0 +1,211 @@
+/* ═══════════════════════════════════════════════════════════════
+   WedPlan – Global Styles
+   Mobile-first, safe-area-aware, touch-optimiert
+   ═══════════════════════════════════════════════════════════════ */
+
+/* ── Reset / Base ─────────────────────────────────────────────── */
+html, body {
+    font-family: 'Poppins', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+    /* Verhindert horizontales Scrollen auf mobilen Geräten */
+    overflow-x: hidden;
+    /* Smooth scrolling für alle Browser */
+    scroll-behavior: smooth;
+    /* iOS: verhindert automatisches Font-Size-Anpassen beim Rotieren */
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+}
+
+/* ── Touch-Optimierungen ──────────────────────────────────────── */
+/* Verhindert 300ms Tap-Delay auf mobilen Geräten */
+* {
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+}
+
+/* Alle interaktiven Elemente: mindestens 44x44px (Apple HIG Richtlinie) */
+button, [role="button"], .mud-button, .mud-icon-button,
+.mud-nav-link, .mud-bottom-navigation-item {
+    min-height: 44px;
+    min-width: 44px;
+}
+
+/* ── iOS Safe Area Insets ─────────────────────────────────────── */
+/* Stellt sicher, dass Inhalte nicht unter Notch/Dynamic Island/Home-Leiste verschwinden */
+body {
+    /* Oben: Statleiste auf iPhone */
+    padding-top: env(safe-area-inset-top);
+    /* Links/Rechts: für Landscape-Modus */
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
+    /* Unten: Home-Leiste auf iPhones ohne Home-Button */
+    /* Hinweis: MudBottomNavigation bekommt seinen eigenen inset (siehe MainLayout.razor.css) */
+}
+
+/* ── Scrollbar-Styling (WebKit / Mobile) ──────────────────────── */
+::-webkit-scrollbar {
+    width: 4px;
+    height: 4px;
+}
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+    background: rgba(0,0,0,0.15);
+    border-radius: 4px;
+}
+
+/* ── MudBlazor Container: auf kleinen Bildschirmen kein Overscroll ── */
+.mud-container {
+    overflow-x: hidden;
+}
+
+/* ── Tabellen → auf Handy als Karten: horizontale Scroll-Fallback ── */
+.mud-table-container {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
+/* ── Typografie: Kopfzeilen mit Hochzeitsschrift ──────────────── */
+h1, h2, h3, h4, h5,
+.mud-typography-h1,
+.mud-typography-h2,
+.mud-typography-h3,
+.mud-typography-h4 {
+    font-family: 'Cormorant Garamond', Georgia, serif;
+}
+
+/* ── Links ────────────────────────────────────────────────────── */
+a, .btn-link {
+    color: #B75A67;
+}
+
+/* ── Fokus-Styles (Accessibility) ────────────────────────────────  */
+.btn:focus, .btn:active:focus, .btn-link.nav-link:focus,
+.form-control:focus, .form-check-input:focus {
+    box-shadow: 0 0 0 0.15rem rgba(214, 166, 172, 0.5);
+}
+
+/* ── Blazor Error UI ──────────────────────────────────────────── */
+.blazor-error-boundary {
+    background: #b32121;
+    padding: 1rem 1rem 1rem 3.7rem;
+    color: white;
+}
+.blazor-error-boundary::after { content: "Ein Fehler ist aufgetreten." }
+
+#blazor-error-ui {
+    color-scheme: light only;
+    background: #fff3cd;
+    bottom: 0;
+    bottom: calc(0px + env(safe-area-inset-bottom));
+    box-shadow: 0 -1px 2px rgba(0,0,0,0.15);
+    box-sizing: border-box;
+    display: none;
+    left: 0;
+    padding: 0.75rem 1.25rem;
+    padding-bottom: calc(0.75rem + env(safe-area-inset-bottom));
+    position: fixed;
+    width: 100%;
+    z-index: 9999;
+    font-size: 0.9rem;
+}
+
+#blazor-error-ui .dismiss {
+    cursor: pointer;
+    position: absolute;
+    right: 0.75rem;
+    top: 0.5rem;
+    font-size: 1.2rem;
+}
+
+/* ── Utility: Versteckte Elemente korrekt ─────────────────────── */
+.valid.modified:not([type=checkbox]) { outline: 1px solid #26b050; }
+.invalid { outline: 1px solid #e50000; }
+.validation-message { color: #e50000; }
+
+h1:focus { outline: none; }
+
+/* ── PWA Installed Mode: Statusbar-Bereich ────────────────────── */
+/* Wenn als PWA installiert, braucht die AppBar extra Platz oben */
+@media all and (display-mode: standalone) {
+    body {
+        /* In standalone mode ist das env() oben wichtiger */
+        padding-top: 0;
+    }
+    /* MudAppBar soll safe-area-inset berücksichtigen */
+    .mud-appbar {
+        padding-top: env(safe-area-inset-top) !important;
+        height: calc(64px + env(safe-area-inset-top)) !important;
+    }
+}
+
+/* ── Mobile Responsive Helpers ────────────────────────────────── */
+@media (max-width: 599px) {
+    /* Kleinere Abstände auf Handy */
+    .mud-container {
+        padding-left: 12px !important;
+        padding-right: 12px !important;
+    }
+
+    /* MudDialog: auf kleinen Screens voll ausfahren */
+    .mud-dialog {
+        width: 100% !important;
+        max-width: 100% !important;
+        margin: 0 !important;
+        border-radius: 16px 16px 0 0 !important;
+    }
+
+    /* Snackbar: oben anzeigen auf Handy (nicht über Bottom-Nav) */
+    .mud-snackbar-location-bottom-center,
+    .mud-snackbar-location-bottom-left,
+    .mud-snackbar-location-bottom-right {
+        bottom: calc(56px + env(safe-area-inset-bottom) + 8px) !important;
+    }
+}
+
+/* ── Elegante Typografie-Verfeinerungen ───────────────────────── */
+/* Überschriften in eleganter Serif-Optik für ein hochwertiges Erscheinungsbild */
+h1, h2, h3, h4,
+.mud-typography-h1, .mud-typography-h2, .mud-typography-h3, .mud-typography-h4 {
+    font-family: 'Cormorant Garamond', Georgia, serif;
+    letter-spacing: 0.3px;
+}
+
+/* Etwas mehr Kontrast und Gewicht für bessere Lesbarkeit */
+.mud-typography-h5, .mud-typography-h6 {
+    font-weight: 600;
+    letter-spacing: 0.2px;
+}
+
+/* Karten weicher und mit dezentem Schatten für moderne Tiefe */
+.mud-card {
+    border-radius: 18px !important;
+    box-shadow: 0 6px 24px rgba(46, 42, 40, 0.08) !important;
+    transition: box-shadow 0.25s ease, transform 0.25s ease;
+}
+
+.mud-card:hover {
+    box-shadow: 0 10px 32px rgba(46, 42, 40, 0.12) !important;
+}
+
+/* ── Titelbild-Upload (Einstellungen) ─────────────────────────── */
+.cover-upload-preview {
+    width: 100%;
+}
+
+.cover-upload-img {
+    width: 100%;
+    height: 220px;
+    object-fit: cover;
+    display: block;
+}
+
+.cover-upload-placeholder {
+    width: 100%;
+    height: 220px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    color: var(--mud-palette-text-secondary);
+    background: linear-gradient(135deg, #F5EFE6 0%, #F3DEDF 100%);
+    border: 2px dashed rgba(201, 162, 39, 0.4);
+}
