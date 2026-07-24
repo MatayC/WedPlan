@@ -254,23 +254,34 @@
                                     @* Gast zu diesem Tisch hinzufügen *@
                                     @if (_canEdit && _unassignedGuestList.Count > 0)
                                     {
-                                        <MudSelect T="Guid?"
-                                                   Value="null"
-                                                   ValueChanged="@(id => AssignGuestToTableAsync(id, table))"
-                                                   Placeholder="+ Gast hinzufügen"
-                                                   Variant="Variant.Outlined"
-                                                   Margin="Margin.Dense"
-                                                   FullWidth="true"
-                                                   Class="mt-2">
-                                            @foreach (var ug in _unassignedGuestList)
-                                            {
-                                                var needed = 1 + ug.PlusOnes;
-                                                <MudSelectItem T="Guid?" Value="@((Guid?)ug.Id)"
-                                                               Disabled="@(free < needed)">
-                                                    @ug.Name @(ug.PlusOnes > 0 ? $"(+{ug.PlusOnes})" : "")
-                                                </MudSelectItem>
-                                            }
-                                        </MudSelect>
+                                        <MudAutocomplete T="Guest"
+                                                         Value="null"
+                                                         SearchFunc="@((string s, CancellationToken _) => SearchUnassignedGuests(s))"
+                                                         ToStringFunc="@(g => g is null ? string.Empty : (g.Name + (g.PlusOnes > 0 ? $" (+{g.PlusOnes})" : "")))"
+                                                         ValueChanged="@(g => AssignGuestFromSearchAsync(g, table))"
+                                                         Placeholder="+ Gast suchen &amp; hinzufügen"
+                                                         Variant="Variant.Outlined"
+                                                         Margin="Margin.Dense"
+                                                         Adornment="Adornment.Start"
+                                                         AdornmentIcon="@Icons.Material.Filled.PersonSearch"
+                                                         ResetValueOnEmptyText="true"
+                                                         CoerceText="true"
+                                                         Clearable="true"
+                                                         FullWidth="true"
+                                                         Class="mt-2">
+                                            <ItemTemplate Context="ug">
+                                                @{
+                                                    var needed = 1 + ug.PlusOnes;
+                                                }
+                                                <div class="d-flex align-center justify-space-between" style="@(free < needed ? "opacity:0.5;" : "")">
+                                                    <span>@ug.Name @(ug.PlusOnes > 0 ? $"(+{ug.PlusOnes})" : "")</span>
+                                                    @if (free < needed)
+                                                    {
+                                                        <MudText Typo="Typo.caption" Color="Color.Error">zu wenig Platz</MudText>
+                                                    }
+                                                </div>
+                                            </ItemTemplate>
+                                        </MudAutocomplete>
                                     }
                                 </MudCardContent>
                             </MudCard>
@@ -470,6 +481,19 @@ else
         var guest = _allGuests.FirstOrDefault(g => g.Id == guestId.Value);
         return guest is not null ? DoAssignAsync(guest, table.Id) : Task.CompletedTask;
     }
+
+    // Namenssuche für das "+ Gast hinzufügen"-Feld auf der Tischkarte
+    private Task<IEnumerable<Guest>> SearchUnassignedGuests(string? search)
+    {
+        IEnumerable<Guest> result = string.IsNullOrWhiteSpace(search)
+            ? _unassignedGuestList
+            : _unassignedGuestList.Where(g =>
+                g.Name.Contains(search, StringComparison.OrdinalIgnoreCase));
+        return Task.FromResult(result);
+    }
+
+    private Task AssignGuestFromSearchAsync(Guest? guest, SeatingTable table)
+        => guest is not null ? DoAssignAsync(guest, table.Id) : Task.CompletedTask;
 
     private async Task DoAssignAsync(Guest guest, Guid tableId)
     {
