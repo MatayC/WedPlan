@@ -10,6 +10,8 @@
 
 <PageTitle>Sitzordnung – WedPlan</PageTitle>
 
+<div class="seating-page">
+
 @* ═══ Kopfzeile ═══ *@
 <div class="seating-header">
     <MudText Typo="Typo.h3" Class="page-header__title">
@@ -169,7 +171,7 @@
                         var overbook = table.IsOverbooked(_allGuests);
                         var assigned = _allGuests.Where(g => table.AssignedGuestIds.Contains(g.Id)).ToList();
 
-                        <MudItem xs="12" sm="6" lg="4">
+                        <MudItem xs="6" sm="6" lg="4">
                             <MudCard Class="@($"table-card {(overbook ? "table-card--overbooked" : "")} table-shape--{table.Shape.ToString().ToLower()}")"
                                      Elevation="3">
                                 <MudCardHeader>
@@ -285,6 +287,8 @@ else
         <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
     </div>
 }
+
+</div>
 
 @code {
     private List<SeatingTable> _tables     = new();
