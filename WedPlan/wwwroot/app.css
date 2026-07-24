@@ -209,3 +209,68 @@ h1, h2, h3, h4,
     background: linear-gradient(135deg, #F5EFE6 0%, #F3DEDF 100%);
     border: 2px dashed rgba(201, 162, 39, 0.4);
 }
+
+/* ── Einheitlicher Seitenkopf (Titel + Aktions-Button) ────────── */
+/* Auf Desktop nebeneinander, auf Mobilgeräten sauber gestapelt.   */
+.page-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-bottom: 20px;
+}
+
+.page-header__title {
+    font-size: 2rem;
+    line-height: 1.2;
+    font-weight: 600;
+}
+
+.page-header__subtitle {
+    color: var(--mud-palette-text-secondary);
+    font-size: 0.95rem;
+    margin-top: 2px;
+}
+
+/* Aktions-Button im Seitenkopf: klar und groß genug für Touch. */
+.page-header__action.mud-button-root {
+    min-height: 48px;
+    font-size: 1rem;
+    font-weight: 600;
+    border-radius: 12px;
+    padding-inline: 20px;
+    white-space: nowrap;
+}
+
+/* ── Mobile-Anpassungen ───────────────────────────────────────── */
+@media (max-width: 600px) {
+    /* Titel etwas kleiner, damit lange Namen nicht umbrechen/abschneiden. */
+    .page-header__title {
+        font-size: 1.6rem;
+    }
+
+    /* Auf schmalen Geräten den Aktions-Button über die volle Breite ziehen,
+       damit Text + Icon immer vollständig sichtbar und gut tippbar sind. */
+    .page-header {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 14px;
+    }
+
+    .page-header__action.mud-button-root {
+        width: 100%;
+        min-height: 52px;
+        font-size: 1.05rem;
+    }
+
+    /* Button-Gruppe (z.B. Checkliste mit zwei Aktionen) auf Mobil volle Breite,
+       Buttons untereinander für klare, große Tippflächen. */
+    .page-header__actions {
+        width: 100%;
+        flex-direction: column;
+        align-items: stretch;
+    }
+}
+
+

@@ -11,12 +11,12 @@
 
 <PageTitle>Budget-Planer – WedPlan</PageTitle>
 
-<div class="d-flex align-center justify-space-between flex-wrap mb-4">
-    <MudText Typo="Typo.h3">Budget-Planer</MudText>
+<div class="page-header">
+    <MudText Typo="Typo.h3" Class="page-header__title">Budget-Planer</MudText>
     @if (_canEdit)
     {
         <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add"
-                   OnClick="@(() => OpenDialogAsync(null))">Posten hinzufügen</MudButton>
+                   Class="page-header__action" OnClick="@(() => OpenDialogAsync(null))">Ausgabe hinzufügen</MudButton>
     }
 </div>
 
@@ -283,9 +283,9 @@ else
         <MudCard Elevation="2" Class="rounded-lg">
             <MudCardContent Class="d-flex flex-column align-center py-8">
                 <MudIcon Icon="@Icons.Material.Filled.ReceiptLong" Color="Color.Secondary" Size="Size.Large" />
-                <MudText Typo="Typo.h6" Class="mt-3">Keine Posten gefunden.</MudText>
+                <MudText Typo="Typo.h6" Class="mt-3">Keine Ausgaben gefunden.</MudText>
                 <MudText Typo="Typo.body2" Class="mud-text-secondary">
-                    @(_allItems.Count == 0 ? "Füge deinen ersten Budget-Posten hinzu." : "Passe Suche oder Filter an.")
+                    @(_allItems.Count == 0 ? "Füge eure erste Ausgabe hinzu." : "Passe Suche oder Filter an.")
                 </MudText>
             </MudCardContent>
         </MudCard>
@@ -616,7 +616,7 @@ else
 
         var options = new DialogOptions { MaxWidth = MaxWidth.Medium, FullWidth = true, CloseButton = true };
         var dialog = await DialogService.ShowAsync<BudgetDialog>(
-            item is null ? "Posten hinzufügen" : "Posten bearbeiten", parameters, options);
+            item is null ? "Ausgabe hinzufügen" : "Ausgabe bearbeiten", parameters, options);
         var result = await dialog.Result;
 
         if (result is not null && !result.Canceled && result.Data is BudgetItem edited)
@@ -639,7 +639,7 @@ else
     {
         var options = new MessageBoxOptions
         {
-            Title = "Posten löschen",
+            Title = "Ausgabe löschen",
             Message = $"Möchtest du '{item.Title}' wirklich löschen?",
             YesText = "Löschen",
             CancelText = "Abbrechen"

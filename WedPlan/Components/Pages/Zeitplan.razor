@@ -11,12 +11,13 @@
 
 <PageTitle>Zeitplan – WedPlan</PageTitle>
 
-<div class="d-flex align-center justify-space-between flex-wrap mb-4">
-    <MudText Typo="Typo.h3">Zeitplan</MudText>
+<div class="page-header">
+    <MudText Typo="Typo.h3" Class="page-header__title">Zeitplan</MudText>
     @if (_canEdit)
     {
         <MudButton Variant="Variant.Filled" Color="Color.Primary"
                    StartIcon="@Icons.Material.Filled.Add"
+                   Class="page-header__action"
                    OnClick="@(() => OpenDialogAsync(null))">Termin hinzufügen</MudButton>
     }
 </div>

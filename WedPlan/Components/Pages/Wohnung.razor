@@ -11,17 +11,17 @@
 
 <PageTitle>Wohnungsplanung – WedPlan</PageTitle>
 
-<div class="d-flex align-center justify-space-between flex-wrap mb-4">
+<div class="page-header">
     <div>
-        <MudText Typo="Typo.h3">Wohnungsplanung</MudText>
-        <MudText Typo="Typo.body2" Class="mud-text-secondary">
+        <MudText Typo="Typo.h3" Class="page-header__title">Wohnungsplanung</MudText>
+        <MudText Typo="Typo.body2" Class="page-header__subtitle">
             Erfasst alle Kosten rund um die gemeinsame Wohnung individuell.
         </MudText>
     </div>
     @if (_canEdit)
     {
         <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add"
-                   OnClick="@(() => OpenDialogAsync(null))">Posten hinzufügen</MudButton>
+                   Class="page-header__action" OnClick="@(() => OpenDialogAsync(null))">Kosten hinzufügen</MudButton>
     }
 </div>
 
@@ -116,9 +116,9 @@ else
         <MudCard Elevation="2" Class="rounded-lg">
             <MudCardContent Class="d-flex flex-column align-center py-8">
                 <MudIcon Icon="@Icons.Material.Filled.Weekend" Color="Color.Secondary" Size="Size.Large" />
-                <MudText Typo="Typo.h6" Class="mt-3">Keine Posten gefunden.</MudText>
+                <MudText Typo="Typo.h6" Class="mt-3">Keine Kosten gefunden.</MudText>
                 <MudText Typo="Typo.body2" Class="mud-text-secondary">
-                    @(_allItems.Count == 0 ? "Füge deinen ersten Wohnungs-Posten hinzu." : "Passe Suche oder Filter an.")
+                    @(_allItems.Count == 0 ? "Füge eure ersten Wohnungs-Kosten hinzu." : "Passe Suche oder Filter an.")
                 </MudText>
             </MudCardContent>
         </MudCard>
@@ -364,7 +364,7 @@ else
 
         var options = new DialogOptions { MaxWidth = MaxWidth.Medium, FullWidth = true, CloseButton = true };
         var dialog = await DialogService.ShowAsync<ApartmentDialog>(
-            item is null ? "Posten hinzufügen" : "Posten bearbeiten", parameters, options);
+            item is null ? "Kosten hinzufügen" : "Kosten bearbeiten", parameters, options);
         var result = await dialog.Result;
 
         if (result is not null && !result.Canceled && result.Data is ApartmentItem edited)
@@ -387,7 +387,7 @@ else
     {
         var options = new MessageBoxOptions
         {
-            Title = "Posten löschen",
+            Title = "Kosten löschen",
             Message = $"Möchtest du '{item.Title}' wirklich löschen?",
             YesText = "Löschen",
             CancelText = "Abbrechen"

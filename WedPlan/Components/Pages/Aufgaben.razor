@@ -12,9 +12,9 @@
 
 <PageTitle>To-Do / Checkliste – WedPlan</PageTitle>
 
-<div class="d-flex align-center justify-space-between flex-wrap mb-4">
-    <MudText Typo="Typo.h3">Checkliste</MudText>
-    <div class="d-flex gap-2 flex-wrap">
+<div class="page-header">
+    <MudText Typo="Typo.h3" Class="page-header__title">Checkliste</MudText>
+    <div class="d-flex gap-2 flex-wrap page-header__actions">
         @if (_canEdit)
         {
             @if (_allItems.Count == 0 && !_loading)
@@ -22,10 +22,12 @@
                 @* Beim ersten Start: Standard-Checkliste anbieten. *@
                 <MudButton Variant="Variant.Outlined" Color="Color.Secondary"
                            StartIcon="@Icons.Material.Filled.PlaylistAdd"
+                           Class="page-header__action"
                            OnClick="LoadTemplateAsync">Standard-Checkliste laden</MudButton>
             }
             <MudButton Variant="Variant.Filled" Color="Color.Primary"
                        StartIcon="@Icons.Material.Filled.Add"
+                       Class="page-header__action"
                        OnClick="@(() => OpenDialogAsync(null))">Aufgabe hinzufügen</MudButton>
         }
     </div>
