@@ -15,7 +15,7 @@
 
 <PageTitle>Einstellungen – WedPlan</PageTitle>
 
-<MudText Typo="Typo.h3" GutterBottom="true">Einstellungen</MudText>
+<MudText Typo="Typo.h4" GutterBottom="true" Class="settings-title">Einstellungen</MudText>
 
 @if (_loading)
 {
@@ -24,6 +24,7 @@
 }
 else
 {
+<div class="settings-compact">
     @* --- Hochzeitsprojekt teilen (Einladungs-Code / Link) --- *@
     <MudCard Elevation="2" Class="rounded-lg mt-4">
         <MudCardContent>
@@ -331,6 +332,7 @@ else
             </MudButton>
         </MudCardActions>
     </MudCard>
+</div>
 }
 
 @code {
